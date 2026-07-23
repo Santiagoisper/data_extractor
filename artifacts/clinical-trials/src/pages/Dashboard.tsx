@@ -90,8 +90,17 @@ async function fetchStudy(nctId: string): Promise<StudyData> {
   const design = mod.designModule || {};
   const contactsMod = mod.contactsLocationsModule || {};
   const centralContacts = contactsMod.centralContacts || [];
-  const contact = centralContacts[0] || {};
   const locations = contactsMod.locations || [];
+
+  // Fallback: if no central contact, pick the first contact from any site
+  const siteContact = (() => {
+    for (const loc of locations) {
+      const c = (loc.contacts || [])[0];
+      if (c && (c.name || c.email || c.phone)) return c;
+    }
+    return null;
+  })();
+  const contact = centralContacts[0] || siteContact || {};
   const phases: string[] = design.phases || [];
   const interventionList = (arms.interventions || []).map((i: any) => i.name).filter(Boolean);
   const collaboratorList = (sponsor.collaborators || []).map((c: any) => c.name).filter(Boolean);
