@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "ClinicalTrials Dashboard"
+version = "1.0.0"
+id = "artifacts/clinical-trials"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18918
+
+[services.development]
+run = "pnpm --filter @workspace/clinical-trials run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/clinical-trials", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/clinical-trials/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18918"
+BASE_PATH = "/"
