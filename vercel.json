@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "pnpm install",
+  "buildCommand": "cd artifacts/clinical-trials && BASE_PATH=/ PORT=3000 pnpm exec vite build --config vite.config.ts",
+  "outputDirectory": "artifacts/clinical-trials/dist/public"
+}
