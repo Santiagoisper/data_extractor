@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -60,40 +60,40 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  --background: 210 20% 98%;
-  --foreground: 224 71% 4%;
+  --background: 42 45% 96%;
+  --foreground: 271 35% 20%;
   
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 222 47% 11%;
+  --border: 30 30% 86%;
+  --input: 30 30% 86%;
+  --ring: 269 49% 28%;
   
   --card: 0 0% 100%;
-  --card-foreground: 224 71% 4%;
-  --card-border: 214 32% 91%;
+  --card-foreground: 271 35% 20%;
+  --card-border: 30 30% 86%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71% 4%;
-  --popover-border: 214 32% 91%;
+  --popover-foreground: 271 35% 20%;
+  --popover-border: 30 30% 86%;
   
-  --primary: 222 47% 11%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 269 49% 28%;
+  --primary-foreground: 45 55% 97%;
   
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 30 56% 93%;
+  --secondary-foreground: 271 35% 20%;
   
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 32 32% 95%;
+  --muted-foreground: 24 13% 42%;
   
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 30 45% 92%;
+  --accent-foreground: 271 35% 20%;
   
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 7 71% 54%;
+  --destructive-foreground: 40 43% 97%;
 
-  --app-font-sans: 'Geist', sans-serif;
+  --app-font-sans: 'Manrope', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'Geist Mono', monospace;
-  --radius: 0.375rem; 
+  --app-font-mono: 'IBM Plex Mono', monospace;
+  --radius: 0.625rem; 
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
@@ -144,6 +144,9 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground selection:bg-primary/10;
+    background-image:
+      radial-gradient(circle at top left, rgba(94, 68, 140, 0.08), transparent 30%),
+      radial-gradient(circle at top right, rgba(215, 132, 53, 0.12), transparent 24%);
   }
 }
 
