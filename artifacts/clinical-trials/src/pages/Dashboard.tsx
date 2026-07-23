@@ -4,7 +4,7 @@ import {
   UploadCloud, Download, Search, AlertCircle, Activity,
   ExternalLink, Mail, Phone, Loader2, Bookmark, BookmarkCheck,
   List, DatabaseZap, Trash2, Pencil, Check, X, ArrowRight,
-  Building2, FileSpreadsheet, Globe2, ShieldCheck, Sparkles
+  Building2, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -705,27 +705,35 @@ export default function Dashboard() {
         />
 
         <section className="rounded-[28px] border border-[#e7dfd3] bg-white shadow-[0_18px_44px_rgba(48,26,70,0.06)]">
-          <div className="border-b border-[#e6ece8] px-6 py-5 md:px-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-3">
-                <img
-                  src="/avanzare-logo.jpg"
-                  alt="Avanzare Clinical Research Solutions"
-                  className="h-auto w-[220px] md:w-[280px]"
-                />
-                <div className="max-w-3xl space-y-3">
-                  <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#34204f] md:text-5xl">
-                    Clinical Trial Sourcing Workspace
+          <div className="relative overflow-hidden border-b border-[#e7dfd3] px-6 py-6 md:px-8 md:py-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(69,36,107,0.09),transparent_36%),radial-gradient(circle_at_right,rgba(207,128,49,0.14),transparent_28%)]" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-4xl space-y-5">
+                <div className="inline-flex rounded-[26px] border border-[#efe4d8] bg-white/88 px-5 py-4 shadow-[0_14px_30px_rgba(48,26,70,0.05)] backdrop-blur">
+                  <img
+                    src="/avanzare-logo.jpg"
+                    alt="Avanzare Clinical Research Solutions"
+                    className="h-auto w-[220px] md:w-[320px]"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8d5f37]">
+                    Avanzare Clinical Research Solutions
+                  </div>
+                  <h1 className="max-w-3xl text-3xl font-semibold tracking-[-0.045em] text-[#34204f] md:text-5xl">
+                    Clinical trials sourcing workspace
                   </h1>
                   <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
-                    Upload an Excel file with NCT identifiers, retrieve structured study details from ClinicalTrials.gov,
-                    and build a clean outreach shortlist for Avanzare.
+                    Upload a workbook, detect NCT identifiers, review the live trial data and export a clean working list.
                   </p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#ece3d8] bg-[#fbf8f4] px-4 py-3 text-right">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
-                  By Lisa Palla Tavolaro & Santiago J. Isbert Perlender
+
+              <div className="flex items-end lg:justify-end">
+                <div className="rounded-2xl border border-[#ecdccc] bg-white/88 px-4 py-3 text-left shadow-[0_10px_24px_rgba(48,26,70,0.04)] backdrop-blur lg:text-right">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
+                    By Lisa Palla Tavolaro & Santiago J. Isbert Perlender
+                  </div>
                 </div>
               </div>
             </div>
@@ -733,36 +741,6 @@ export default function Dashboard() {
 
           <div className="grid gap-0 lg:grid-cols-[1.25fr_0.75fr]">
             <div className="space-y-6 px-6 py-6 md:px-8 md:py-8">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-[#eee6dc] bg-[#fcfbf9] p-5">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#34204f]">
-                    <FileSpreadsheet className="h-4 w-4 text-[#cf8031]" />
-                    Excel intake
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600">
-                    Scan the full workbook and capture every NCT identifier automatically.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[#eee6dc] bg-[#fcfbf9] p-5">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#34204f]">
-                    <Globe2 className="h-4 w-4 text-[#cf8031]" />
-                    Registry enrichment
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600">
-                    Pull sponsor, phase, contact and site metadata from the public registry.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[#eee6dc] bg-[#fcfbf9] p-5">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#34204f]">
-                    <ShieldCheck className="h-4 w-4 text-[#cf8031]" />
-                    Export-ready curation
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600">
-                    Save the strongest records and export a structured outreach list.
-                  </p>
-                </div>
-              </div>
-
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
