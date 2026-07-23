@@ -74,7 +74,7 @@ export default function Dashboard() {
       
       const uniqueNctIds = Array.from(nctIds);
       if (uniqueNctIds.length === 0) {
-        toast({ title: 'No NCT IDs found in the file', variant: 'destructive' });
+        toast({ title: 'Nenhum ID NCT encontrado no arquivo', variant: 'destructive' });
         setIsUploading(false);
         return;
       }
@@ -84,7 +84,7 @@ export default function Dashboard() {
       
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error parsing Excel file', variant: 'destructive' });
+      toast({ title: 'Erro ao processar o arquivo Excel', variant: 'destructive' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -128,9 +128,9 @@ export default function Dashboard() {
           return {
             nctId,
             error: true,
-            briefTitle: 'Error loading',
-            overallStatus: 'Error',
-            leadSponsor: 'Error loading',
+            briefTitle: 'Erro ao carregar',
+            overallStatus: 'Erro',
+            leadSponsor: 'Erro ao carregar',
             lastUpdatePostDate: '',
             contactName: '',
             contactPhone: '',
@@ -179,13 +179,13 @@ export default function Dashboard() {
 
     const headers = [
       'NCT ID',
-      'Study Title',
-      'Sponsor',
+      'Título do Estudo',
+      'Patrocinador',
       'Status',
-      'Last Update',
-      'Contact Name',
-      'Contact Phone',
-      'Contact Email',
+      'Última Atualização',
+      'Nome do Contato',
+      'Telefone do Contato',
+      'E-mail do Contato',
     ];
 
     const rows = filteredStudies.map(d => [
@@ -234,10 +234,10 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2">
               <Activity className="h-6 w-6 text-primary" />
-              Trial Contacts Workbench
+              Central de Contatos de Ensaios Clínicos
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Bulk extract and resolve clinical trial sponsor contacts from NCT IDs.
+              Extraia e consulte contatos de patrocinadores de ensaios clínicos a partir de IDs NCT.
             </p>
           </div>
           
@@ -249,11 +249,11 @@ export default function Dashboard() {
                 setSearchQuery('');
                 setStatusFilter('All');
               }}>
-                Upload New File
+                Carregar Novo Arquivo
               </Button>
               <Button onClick={exportCSV} disabled={filteredStudies.length === 0 || isFetching} className="gap-2 shadow-sm">
                 <Download className="h-4 w-4" />
-                Export CSV
+                Exportar CSV
               </Button>
             </div>
           )}
@@ -266,9 +266,9 @@ export default function Dashboard() {
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
                   <UploadCloud className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">Upload study list</h3>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">Carregar lista de estudos</h3>
                 <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm">
-                  Drop an Excel (.xlsx) file containing NCT IDs. The parser will automatically extract any cell matching the NCT format.
+                  Arraste um arquivo Excel (.xlsx) com IDs NCT. O sistema extrai automaticamente qualquer célula no formato NCT.
                 </p>
                 <Input 
                   type="file" 
@@ -284,9 +284,9 @@ export default function Dashboard() {
                   className="shadow-sm font-medium px-8"
                 >
                   {isUploading ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Parsing...</>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
                   ) : (
-                    'Select Excel File'
+                    'Selecionar Arquivo Excel'
                   )}
                 </Button>
               </CardContent>
@@ -300,7 +300,7 @@ export default function Dashboard() {
                   <Loader2 className="h-5 w-5 text-primary animate-spin" />
                   <div className="flex-1 space-y-1">
                     <div className="flex justify-between text-sm font-medium">
-                      <span className="text-primary">Fetching {progress.current} of {progress.total} studies...</span>
+                      <span className="text-primary">Buscando {progress.current} de {progress.total} estudos...</span>
                       <span className="text-primary/70">{Math.round((progress.current / progress.total) * 100)}%</span>
                     </div>
                     <Progress value={(progress.current / progress.total) * 100} className="h-2" />
@@ -313,22 +313,22 @@ export default function Dashboard() {
               <div className="relative w-full sm:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input 
-                  placeholder="Search trials, sponsors, contacts..." 
+                  placeholder="Buscar ensaios, patrocinadores, contatos..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-primary/20"
                 />
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter Status:</span>
+                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filtrar Status:</span>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full sm:w-[180px] bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                    <SelectValue placeholder="All Statuses" />
+                    <SelectValue placeholder="Todos os Status" />
                   </SelectTrigger>
                   <SelectContent>
                     {uniqueStatuses.map(status => (
                       <SelectItem key={status} value={status}>
-                        {status || 'Unknown'}
+                        {status === 'All' ? 'Todos' : status || 'Desconhecido'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -341,18 +341,18 @@ export default function Dashboard() {
                 <TableHeader className="bg-slate-50/50 dark:bg-slate-950/50">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-[120px] font-semibold text-slate-900 dark:text-slate-300">NCT ID</TableHead>
-                    <TableHead className="min-w-[200px] font-semibold text-slate-900 dark:text-slate-300">Study Title</TableHead>
-                    <TableHead className="min-w-[150px] font-semibold text-slate-900 dark:text-slate-300">Sponsor</TableHead>
+                    <TableHead className="min-w-[200px] font-semibold text-slate-900 dark:text-slate-300">Título do Estudo</TableHead>
+                    <TableHead className="min-w-[150px] font-semibold text-slate-900 dark:text-slate-300">Patrocinador</TableHead>
                     <TableHead className="w-[140px] font-semibold text-slate-900 dark:text-slate-300">Status</TableHead>
-                    <TableHead className="w-[120px] font-semibold text-slate-900 dark:text-slate-300">Last Update</TableHead>
-                    <TableHead className="min-w-[150px] font-semibold text-slate-900 dark:text-slate-300">Contact</TableHead>
+                    <TableHead className="w-[120px] font-semibold text-slate-900 dark:text-slate-300">Última Atualização</TableHead>
+                    <TableHead className="min-w-[150px] font-semibold text-slate-900 dark:text-slate-300">Contato</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredStudies.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="h-48 text-center text-slate-500">
-                        {isFetching ? 'Loading initial batch...' : 'No trials match your search.'}
+                        {isFetching ? 'Carregando primeiro lote...' : 'Nenhum ensaio corresponde à sua busca.'}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -376,13 +376,13 @@ export default function Dashboard() {
                         <TableCell>
                           {study.error ? (
                             <span className="text-destructive text-sm flex items-center gap-1">
-                              <AlertCircle className="h-4 w-4" /> Error loading data
+                              <AlertCircle className="h-4 w-4" /> Erro ao carregar dados
                             </span>
                           ) : (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="line-clamp-2 text-sm text-slate-700 dark:text-slate-300 max-w-[300px] cursor-default">
-                                  {study.briefTitle || <span className="text-slate-400 italic">No title</span>}
+                                  {study.briefTitle || <span className="text-slate-400 italic">Sem título</span>}
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="max-w-md p-3 leading-relaxed">
@@ -396,7 +396,7 @@ export default function Dashboard() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`font-medium border shadow-none ${getStatusColor(study.overallStatus)}`}>
-                            {study.overallStatus || 'Unknown'}
+                            {study.overallStatus || 'Desconhecido'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-slate-600 dark:text-slate-400 tabular-nums">
@@ -438,7 +438,7 @@ export default function Dashboard() {
             
             {!isFetching && filteredStudies.length > 0 && (
               <div className="text-center text-sm text-slate-500 py-4">
-                Showing {filteredStudies.length} {filteredStudies.length === 1 ? 'study' : 'studies'}
+                Exibindo {filteredStudies.length} {filteredStudies.length === 1 ? 'estudo' : 'estudos'}
               </div>
             )}
           </div>
