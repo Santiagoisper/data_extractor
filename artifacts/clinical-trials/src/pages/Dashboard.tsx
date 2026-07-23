@@ -841,52 +841,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: 'Total visible studies',
-              value: totalStudies,
-              note: 'Active results plus saved shortlist',
-              icon: Activity,
-            },
-            {
-              label: 'Recruiting studies',
-              value: recruitingCount,
-              note: 'Ideal for outreach prioritization',
-              icon: Sparkles,
-            },
-            {
-              label: 'Unique sponsors',
-              value: sponsorCount,
-              note: 'Across the visible workspace',
-              icon: Building2,
-            },
-            {
-              label: 'Studies with contact data',
-              value: highlightedStudies,
-              note: 'Immediate follow-up candidates',
-              icon: Mail,
-            },
-          ].map(metric => (
-            <Card key={metric.label} className="overflow-hidden rounded-[24px] border-white/70 bg-white/80 shadow-[0_14px_36px_rgba(15,53,56,0.08)] backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                    {metric.label}
-                  </div>
-                  <div className="rounded-full bg-[#0a6069]/8 p-2 text-[#0a6069]">
-                    <metric.icon className="h-4 w-4" />
-                  </div>
-                </div>
-                <div className="text-4xl font-semibold tracking-[-0.04em] text-[#0b2e34]">
-                  {metric.value}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{metric.note}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
         {isFetching && (
           <Card className="overflow-hidden rounded-[26px] border border-[#eadfce] bg-[linear-gradient(135deg,rgba(69,36,107,0.05),rgba(255,255,255,0.88))] shadow-[0_16px_36px_rgba(48,26,70,0.06)]">
             <CardContent className="flex items-center gap-4 p-5">
@@ -907,29 +861,26 @@ export default function Dashboard() {
             <Card className="w-full max-w-4xl overflow-hidden rounded-[30px] border border-[#e7dfd3] bg-white shadow-[0_20px_50px_rgba(48,26,70,0.06)]">
               <CardContent className="grid gap-8 p-8 md:grid-cols-[1.1fr_0.9fr] md:p-10">
                 <div className="space-y-5">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[#45246b]/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#45246b]">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Trial intake workflow
-                  </div>
+                  <img
+                    src="/avanzare-logo.jpg"
+                    alt="Avanzare Clinical Research Solutions"
+                    className="h-auto w-[190px]"
+                  />
                   <div className="space-y-3">
-                    <h3 className="text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">Start with a sponsor workbook and let the platform structure the rest.</h3>
+                    <h3 className="text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">
+                      Start with your workbook.
+                    </h3>
                     <p className="max-w-xl text-sm leading-7 text-slate-600">
-                      Drag in a spreadsheet with NCT IDs, generate an enriched study list, and keep the most relevant records in a curated Avanzare shortlist.
+                      Upload an Excel file with NCT identifiers and review the resulting studies in a clean Avanzare workspace.
                     </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[#ede1ce] bg-[#fbf6ee] p-4">
-                      <div className="text-lg font-semibold text-[#34204f]">01</div>
-                      <p className="mt-2 text-sm text-slate-600">Upload an Excel sheet with one or many NCT references.</p>
+                  <div className="rounded-[24px] border border-[#ede1ce] bg-[#fbf6ee] p-5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
+                      Workflow
                     </div>
-                    <div className="rounded-2xl border border-[#ede1ce] bg-[#fbf6ee] p-4">
-                      <div className="text-lg font-semibold text-[#34204f]">02</div>
-                      <p className="mt-2 text-sm text-slate-600">Fetch sponsors, indications, contacts and study details instantly.</p>
-                    </div>
-                    <div className="rounded-2xl border border-[#ede1ce] bg-[#fbf6ee] p-4">
-                      <div className="text-lg font-semibold text-[#34204f]">03</div>
-                      <p className="mt-2 text-sm text-slate-600">Save the best records and export them as sponsor-ready CSV.</p>
-                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      Upload the file, review the fetched trial data, keep the relevant studies and export the final CSV when you are ready.
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col justify-center rounded-[26px] border border-[#ece3d8] bg-[#fcfbf8] p-8 text-center">
