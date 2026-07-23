@@ -116,7 +116,7 @@ async function fetchStudy(nctId: string): Promise<StudyData> {
     therapeuticArea: conditions[0] || '',
     indication: conditions.join('; '),
     interventions: interventionList,
-    phase: phases.join(', ').replace('PHASE', 'Phase'),
+    phase: phases.join(', ').replace('PHASE', 'Fase'),
     enrollmentCount: design.enrollmentInfo?.count ?? undefined,
     locationCount: locations.length || undefined,
     contactName: contact.name || '',
@@ -153,11 +153,11 @@ function StudyTable({
   actionSlot: (study: StudyData) => React.ReactNode;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('Todos');
 
   const uniqueStatuses = useMemo(() => {
     const s = new Set(studies.map(s => s.overallStatus).filter((x): x is string => !!x));
-    return ['All', ...Array.from(s)];
+    return ['Todos', ...Array.from(s)];
   }, [studies]);
 
   const filtered = useMemo(() => studies.filter(s => {
@@ -168,7 +168,7 @@ function StudyTable({
       (s.indication || '').toLowerCase().includes(q) ||
       (s.interventions || []).join(' ').toLowerCase().includes(q) ||
       (s.briefTitle || '').toLowerCase().includes(q);
-    const matchStatus = statusFilter === 'All' || s.overallStatus === statusFilter;
+    const matchStatus = statusFilter === 'Todos' || s.overallStatus === statusFilter;
     return matchSearch && matchStatus;
   }), [studies, searchQuery, statusFilter]);
 
@@ -178,7 +178,7 @@ function StudyTable({
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Buscar ensaios, patrocinadores, indicação..."
+            placeholder="Buscar estudos, patrocinadores, indicações..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
@@ -192,7 +192,7 @@ function StudyTable({
             </SelectTrigger>
             <SelectContent>
               {uniqueStatuses.map(s => (
-                <SelectItem key={s} value={s}>{s === 'All' ? 'Todos' : s || 'Desconhecido'}</SelectItem>
+                <SelectItem key={s} value={s}>{s === 'Todos' ? 'Todos' : s || 'Desconhecido'}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -203,19 +203,19 @@ function StudyTable({
         <Table>
           <TableHeader className="bg-slate-50/70 dark:bg-slate-950/70">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Therapeutic Area</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Sponsor</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Origin (indic.)</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Indication</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Intervention</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Phase</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Área Terapêutica</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Patrocinador</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Origem (indicação)</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Indicação</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Intervenção</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Fase</TableHead>
               <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Status</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap text-right">No. of sites</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap text-right">No. of particip.</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Start</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap text-right">Nº de centros</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap text-right">Nº de participantes</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Início</TableHead>
               <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">NCT ID</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">CRO / Collaborator</TableHead>
-              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Contact</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">CRO / Colaborador</TableHead>
+              <TableHead className="font-semibold text-slate-800 dark:text-slate-300 whitespace-nowrap">Contato</TableHead>
               <TableHead className="w-[80px]" />
             </TableRow>
           </TableHeader>
@@ -386,19 +386,19 @@ function SavedList({
           <Table>
             <TableHeader className="bg-slate-50/70 dark:bg-slate-950/70">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Therapeutic Area</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Sponsor</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Origin (indic.)</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Indication</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Intervention</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Phase</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Área Terapêutica</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Patrocinador</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Origem (indicação)</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Indicação</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Intervenção</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Fase</TableHead>
                 <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Status</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap text-right">No. of sites</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap text-right">No. of particip.</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Start</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap text-right">Nº de centros</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap text-right">Nº de participantes</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Início</TableHead>
                 <TableHead className="font-semibold text-slate-800 whitespace-nowrap">NCT ID</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">CRO / Collaborator</TableHead>
-                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Contact</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">CRO / Colaborador</TableHead>
+                <TableHead className="font-semibold text-slate-800 whitespace-nowrap">Contato</TableHead>
                 <TableHead className="w-[80px]" />
               </TableRow>
             </TableHeader>
@@ -649,7 +649,7 @@ export default function Dashboard() {
     setSavedStudies(prev =>
       prev.map(study => (study.nctId === nctId ? { ...study, origin } : study)),
     );
-    toast({ title: `${nctId} updated`, description: 'Origin field saved successfully.' });
+    toast({ title: `${nctId} atualizado`, description: 'Campo de origem salvo com sucesso.' });
   };
 
   // ── CSV export ───────────────────────────────────────────────────────────────
@@ -660,9 +660,9 @@ export default function Dashboard() {
 
   const exportCSV = (list: StudyData[]) => {
     const headers = [
-      'NCT ID', 'Therapeutic Area', 'Sponsor', 'Origin (indic.)', 'Indication',
-      'Intervention', 'Phase', 'Status', 'No. of sites', 'No. of participants',
-      'Start', 'CRO / Collaborator', 'Contact Name', 'Contact Email', 'Contact Phone',
+      'NCT ID', 'Área Terapêutica', 'Patrocinador', 'Origem (indicação)', 'Indicação',
+      'Intervenção', 'Fase', 'Status', 'Nº de centros', 'Nº de participantes',
+      'Início', 'CRO / Colaborador', 'Nome do contato', 'E-mail do contato', 'Telefone do contato',
     ];
     const rows = list.map(d => [
       escapeField(d.nctId),
@@ -685,7 +685,7 @@ export default function Dashboard() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `clinical_trials_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `estudos_clinicos_${new Date().toISOString().split('T')[0]}.csv`;
     a.style.visibility = 'hidden';
     document.body.appendChild(a);
     a.click();
@@ -721,10 +721,10 @@ export default function Dashboard() {
                     Avanzare Clinical Research Solutions
                   </div>
                   <h1 className="max-w-3xl text-3xl font-semibold tracking-[-0.045em] text-[#34204f] md:text-5xl">
-                    Clinical trials sourcing workspace
+                    Espaço de trabalho para prospecção de estudos clínicos
                   </h1>
                   <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
-                    Upload a workbook, detect NCT identifiers, review the live trial data and export a clean working list.
+                    Envie uma planilha, detecte identificadores NCT, revise os dados dos estudos e exporte uma lista de trabalho limpa.
                   </p>
                 </div>
               </div>
@@ -744,27 +744,27 @@ export default function Dashboard() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
-                    label: 'Visible studies',
+                    label: 'Estudos visíveis',
                     value: totalStudies,
-                    note: 'Results and shortlist combined',
+                    note: 'Resultados e shortlist combinados',
                     icon: Activity,
                   },
                   {
-                    label: 'Recruiting',
+                    label: 'Em recrutamento',
                     value: recruitingCount,
-                    note: 'Records ready for prioritization',
+                    note: 'Registros prontos para priorização',
                     icon: Sparkles,
                   },
                   {
-                    label: 'Sponsors',
+                    label: 'Patrocinadores',
                     value: sponsorCount,
-                    note: 'Unique organizations in workspace',
+                    note: 'Organizações únicas no espaço',
                     icon: Building2,
                   },
                   {
-                    label: 'With contacts',
+                    label: 'Com contatos',
                     value: highlightedStudies,
-                    note: 'Entries with email or phone',
+                    note: 'Entradas com e-mail ou telefone',
                     icon: Mail,
                   },
                 ].map(metric => (
@@ -793,10 +793,10 @@ export default function Dashboard() {
                 <div className="mb-6 flex items-start justify-between gap-4">
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
-                      Upload
+                      Envio
                     </div>
                     <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#34204f]">
-                      Add a source workbook
+                      Adicione uma planilha de origem
                     </h2>
                   </div>
                   <div className="rounded-full bg-[#45246b]/8 p-3 text-[#45246b]">
@@ -806,19 +806,19 @@ export default function Dashboard() {
 
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-[#eee6dc] bg-[#fcfbf9] p-4">
-                    <div className="text-sm font-medium text-[#34204f]">Expected input</div>
+                    <div className="text-sm font-medium text-[#34204f]">Formato esperado</div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Any `.xlsx` or `.xls` file containing NCT identifiers anywhere in the sheet.
+                      Qualquer arquivo `.xlsx` ou `.xls` com identificadores NCT em qualquer parte da planilha.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-[#eee6dc] bg-white p-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Saved</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Salvos</div>
                       <div className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">{savedStudies.length}</div>
                     </div>
                     <div className="rounded-2xl border border-[#eee6dc] bg-white p-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Live</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Ao vivo</div>
                       <div className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">{studies.length}</div>
                     </div>
                   </div>
@@ -832,7 +832,7 @@ export default function Dashboard() {
                 >
                   <span className="flex items-center gap-2">
                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                    {isUploading ? 'Processing workbook...' : hasData ? 'Upload another workbook' : 'Upload workbook'}
+                    {isUploading ? 'Processando planilha...' : hasData ? 'Enviar outra planilha' : 'Enviar planilha'}
                   </span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -847,7 +847,7 @@ export default function Dashboard() {
               <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#45246b]" />
               <div className="flex-1 space-y-1">
                 <div className="flex justify-between text-sm font-medium">
-                  <span className="text-[#45246b]">Building your live study set: {progress.current} of {progress.total}</span>
+                  <span className="text-[#45246b]">Montando sua base de estudos: {progress.current} de {progress.total}</span>
                   <span className="text-[#45246b]/70">{Math.round((progress.current / progress.total) * 100)}%</span>
                 </div>
                 <Progress value={(progress.current / progress.total) * 100} className="h-2" />
@@ -868,18 +868,18 @@ export default function Dashboard() {
                   />
                   <div className="space-y-3">
                     <h3 className="text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">
-                      Start with your workbook.
+                      Comece com sua planilha.
                     </h3>
                     <p className="max-w-xl text-sm leading-7 text-slate-600">
-                      Upload an Excel file with NCT identifiers and review the resulting studies in a clean Avanzare workspace.
+                      Envie um arquivo Excel com identificadores NCT e revise os estudos resultantes em um espaço Avanzare mais limpo.
                     </p>
                   </div>
                   <div className="rounded-[24px] border border-[#ede1ce] bg-[#fbf6ee] p-5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
-                      Workflow
+                      Fluxo
                     </div>
                     <p className="mt-3 text-sm leading-7 text-slate-600">
-                      Upload the file, review the fetched trial data, keep the relevant studies and export the final CSV when you are ready.
+                      Envie o arquivo, revise os dados capturados, mantenha os estudos relevantes e exporte o CSV final quando estiver pronto.
                     </p>
                   </div>
                 </div>
@@ -887,12 +887,12 @@ export default function Dashboard() {
                   <div className="mx-auto mb-6 flex h-18 w-18 items-center justify-center rounded-full bg-[#45246b]/10">
                     <UploadCloud className="h-9 w-9 text-[#45246b]" />
                   </div>
-                  <h3 className="text-xl font-semibold text-[#34204f]">Upload study identifiers</h3>
+                  <h3 className="text-xl font-semibold text-[#34204f]">Enviar identificadores de estudos</h3>
                   <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
-                    We scan the full workbook, detect NCT IDs automatically, and create a clean study review workspace.
+                    Lemos a planilha inteira, detectamos os IDs NCT automaticamente e montamos um espaço limpo para revisão.
                   </p>
                   <Button size="lg" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="mt-8 h-12 rounded-2xl bg-[#45246b] px-8 hover:bg-[#341a51]">
-                    {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : 'Select Excel file'}
+                    {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</> : 'Selecionar arquivo Excel'}
                   </Button>
                 </div>
               </CardContent>
@@ -904,14 +904,14 @@ export default function Dashboard() {
           <section className="space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d5f37]">Workspace</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#34204f]">Review, shortlist and export your studies</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d5f37]">Espaço de trabalho</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#34204f]">Revise, selecione e exporte seus estudos</h2>
                 <p className="mt-2 text-sm text-slate-500">
-                  Use the results tab for fresh API output and the shortlist tab for the Avanzare follow-up set.
+                  Use a aba de resultados para a saída atual da API e a aba de shortlist para a seleção da Avanzare.
                 </p>
               </div>
               <div className="rounded-full border border-[#ece3d8] bg-white/90 px-4 py-2 text-xs font-medium text-slate-500">
-                Public registry source • ClinicalTrials.gov • Excel-led workflow
+                Fonte pública • ClinicalTrials.gov • Fluxo guiado por Excel
               </div>
             </div>
 
@@ -919,14 +919,14 @@ export default function Dashboard() {
               <TabsList className="h-auto rounded-[22px] border border-[#ece3d8] bg-white p-1.5 shadow-[0_10px_30px_rgba(48,26,70,0.05)]">
                 <TabsTrigger value="results" className="gap-2 rounded-[16px] px-5 py-3 data-[state=active]:bg-[#45246b] data-[state=active]:text-white data-[state=active]:shadow-none">
                   <DatabaseZap className="h-4 w-4" />
-                  Live Results
+                  Resultados ao vivo
                   {studies.length > 0 && (
                     <Badge variant="secondary" className="ml-1 bg-white/14 px-1.5 py-0 text-xs text-inherit">{studies.length}</Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="saved" className="gap-2 rounded-[16px] px-5 py-3 data-[state=active]:bg-[#45246b] data-[state=active]:text-white data-[state=active]:shadow-none">
                   <List className="h-4 w-4" />
-                  Avanzare Shortlist
+                  Lista Avanzare
                   {savedStudies.length > 0 && (
                     <Badge variant="secondary" className="ml-1 bg-white/14 px-1.5 py-0 text-xs text-inherit">{savedStudies.length}</Badge>
                   )}
@@ -938,7 +938,7 @@ export default function Dashboard() {
                   <>
                     <div className="mb-3 flex justify-end">
                       <Button size="sm" variant="outline" onClick={() => exportCSV(studies)} disabled={studies.length === 0 || isFetching} className="gap-2 rounded-xl border-[#ece3d8] bg-white/90 hover:bg-white">
-                        <Download className="h-4 w-4" /> Export CSV
+                        <Download className="h-4 w-4" /> Exportar CSV
                       </Button>
                     </div>
                     <StudyTable
@@ -947,7 +947,7 @@ export default function Dashboard() {
                       actionSlot={(study) =>
                         savedIds.has(study.nctId) ? (
                           <Button size="sm" variant="ghost" disabled className="h-7 gap-1 px-2 text-xs text-emerald-600">
-                            <BookmarkCheck className="h-3.5 w-3.5" /> Saved
+                            <BookmarkCheck className="h-3.5 w-3.5" /> Salvo
                           </Button>
                         ) : (
                           <Button
@@ -956,7 +956,7 @@ export default function Dashboard() {
                             className="h-7 gap-1 rounded-xl border-[#ece3d8] bg-white/90 px-2 text-xs"
                             onClick={() => saveStudy(study)}
                           >
-                            <Bookmark className="h-3.5 w-3.5" /> Save
+                            <Bookmark className="h-3.5 w-3.5" /> Salvar
                           </Button>
                         )
                       }
@@ -967,7 +967,7 @@ export default function Dashboard() {
                     <Card className="mt-4 rounded-[24px] border border-dashed border-[#ddcfbd] bg-white shadow-none">
                       <CardContent className="flex flex-col items-center justify-center py-16 text-slate-500">
                         <UploadCloud className="mb-3 h-8 w-8 text-[#b48654]" />
-                        Upload a workbook to populate the live results table.
+                        Envie uma planilha para preencher a tabela de resultados ao vivo.
                       </CardContent>
                     </Card>
                   )
