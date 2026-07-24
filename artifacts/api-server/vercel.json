@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --dir ../.. run typecheck:libs && pnpm run build"
+}
