@@ -1,7 +1,10 @@
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+
+const dirname = import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
@@ -25,7 +28,7 @@ export default defineConfig({
       ? [
           await import('@replit/vite-plugin-cartographer').then((m) =>
             m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
+              root: path.resolve(dirname, '..'),
             }),
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
@@ -36,9 +39,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
+      '@': path.resolve(dirname, 'src'),
       '@assets': path.resolve(
-        import.meta.dirname,
+        dirname,
         '..',
         '..',
         'attached_assets',
@@ -46,9 +49,9 @@ export default defineConfig({
     },
     dedupe: ['react', 'react-dom'],
   },
-  root: path.resolve(import.meta.dirname),
+  root: path.resolve(dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, 'dist/public'),
+    outDir: path.resolve(dirname, 'dist/public'),
     emptyOutDir: true,
   },
   server: {

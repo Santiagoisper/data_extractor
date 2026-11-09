@@ -4,7 +4,7 @@ import {
   UploadCloud, Download, Search, AlertCircle, Activity,
   ExternalLink, Mail, Phone, Loader2, Bookmark, BookmarkCheck,
   List, DatabaseZap, Trash2, Pencil, Check, X, ArrowRight,
-  Building2, Sparkles
+  Building2, Sparkles, RefreshCw, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,12 +14,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+type StudyContact = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  place?: string;
+};
 
 type StudyData = {
   nctId: string;
@@ -38,6 +47,7 @@ type StudyData = {
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
+  contacts?: StudyContact[];
   error?: boolean;
 };
 
@@ -59,7 +69,12 @@ function loadSaved(): SavedStudy[] {
 }
 
 function persistSaved(list: SavedStudy[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getStatusColor(status?: string) {
@@ -67,47 +82,392 @@ function getStatusColor(status?: string) {
   const s = status.toUpperCase();
   if (s === 'RECRUITING') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
   if (s === 'COMPLETED') return 'bg-slate-100 text-slate-700 border-slate-200';
-  if (s === 'ACTIVE, NOT RECRUITING') return 'bg-amber-100 text-amber-800 border-amber-200';
+  if (s === 'ACTIVE, NOT RECRUITING' || s === 'ACTIVE_NOT_RECRUITING') return 'bg-amber-100 text-amber-800 border-amber-200';
   if (s === 'TERMINATED' || s === 'WITHDRAWN' || s === 'SUSPENDED')
     return 'bg-red-100 text-red-800 border-red-200';
-  if (s === 'NOT YET RECRUITING') return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (s === 'NOT YET RECRUITING' || s === 'NOT_YET_RECRUITING' || s === 'ENROLLING_BY_INVITATION') return 'bg-blue-100 text-blue-800 border-blue-200';
   if (s === 'ERROR') return 'bg-destructive/10 text-destructive border-destructive/20';
   return 'bg-gray-100 text-gray-700 border-gray-200';
 }
 
-async function fetchStudy(nctId: string): Promise<StudyData> {
-  const res = await fetch(
-    `https://clinicaltrials.gov/api/v2/studies/${nctId}?fields=NCTId,BriefTitle,OverallStatus,StartDate,LeadSponsorName,CollaboratorName,Condition,InterventionName,InterventionType,Phase,EnrollmentCount,LocationFacility,CentralContactName,CentralContactPhone,CentralContactEMail`
-  );
-  if (!res.ok) throw new Error('Not ok');
-  const json = await res.json();
+type SearchParams = {
+  condition: string[];
+  drug: string[];
+  countries: string[];
+  sponsors: string[];
+  status: string;
+  studyType: string;
+  phase: string;
+  sex: string;
+  age: string;
+  sponsorClass: string;
+  interventionType: string;
+  results: string;
+};
 
+type ApiContact = { name?: string; phone?: string; email?: string };
+type ApiLocation = {
+  facility?: string;
+  city?: string;
+  country?: string;
+  status?: string;
+  contacts?: ApiContact[];
+};
+
+const STUDY_FIELDS = [
+  'NCTId', 'BriefTitle', 'OverallStatus', 'StartDate', 'LeadSponsorName', 'CollaboratorName',
+  'Condition', 'InterventionName', 'Phase', 'EnrollmentCount', 'LocationFacility', 'LocationCity',
+  'LocationCountry', 'LocationStatus', 'CentralContactName', 'CentralContactPhone', 'CentralContactEMail',
+  'LocationContactName', 'LocationContactPhone', 'LocationContactEMail',
+].join(',');
+
+const ANY = 'ANY';
+
+const SEARCH_STATUSES = [
+  { value: ANY, label: 'Todos os status' },
+  { value: 'RECRUITING', label: 'Recrutando' },
+  { value: 'NOT_YET_RECRUITING', label: 'Ainda não recrutando' },
+  { value: 'ENROLLING_BY_INVITATION', label: 'Por convite' },
+  { value: 'ACTIVE_NOT_RECRUITING', label: 'Ativo, sem recrutar' },
+  { value: 'COMPLETED', label: 'Concluído' },
+  { value: 'SUSPENDED', label: 'Suspenso' },
+  { value: 'TERMINATED', label: 'Encerrado' },
+  { value: 'WITHDRAWN', label: 'Retirado' },
+  { value: 'UNKNOWN', label: 'Desconhecido' },
+  { value: 'AVAILABLE', label: 'Disponível' },
+  { value: 'NO_LONGER_AVAILABLE', label: 'Não mais disponível' },
+  { value: 'TEMPORARILY_NOT_AVAILABLE', label: 'Temporariamente indisponível' },
+  { value: 'APPROVED_FOR_MARKETING', label: 'Aprovado para comercialização' },
+  { value: 'WITHHELD', label: 'Retido' },
+];
+
+const SEARCH_STUDY_TYPES = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'INTERVENTIONAL', label: 'Intervencionista' },
+  { value: 'OBSERVATIONAL', label: 'Observacional' },
+  { value: 'EXPANDED_ACCESS', label: 'Acesso expandido' },
+];
+
+const SEARCH_PHASES = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'EARLY_PHASE1', label: 'Fase inicial 1' },
+  { value: 'PHASE1', label: 'Fase 1' },
+  { value: 'PHASE2', label: 'Fase 2' },
+  { value: 'PHASE3', label: 'Fase 3' },
+  { value: 'PHASE4', label: 'Fase 4' },
+  { value: 'NA', label: 'Não se aplica' },
+];
+
+const SEARCH_SEXES = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'ALL', label: 'Todos os sexos' },
+  { value: 'FEMALE', label: 'Feminino' },
+  { value: 'MALE', label: 'Masculino' },
+];
+
+const SEARCH_AGES = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'CHILD', label: 'Criança' },
+  { value: 'ADULT', label: 'Adulto' },
+  { value: 'OLDER_ADULT', label: '65 anos ou mais' },
+];
+
+const SEARCH_SPONSOR_CLASSES = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'INDUSTRY', label: 'Indústria' },
+  { value: 'NIH', label: 'NIH' },
+  { value: 'FED', label: 'Governo federal dos EUA' },
+  { value: 'OTHER_GOV', label: 'Outro governo' },
+  { value: 'NETWORK', label: 'Rede' },
+  { value: 'INDIV', label: 'Investigador' },
+  { value: 'OTHER', label: 'Outro' },
+  { value: 'UNKNOWN', label: 'Desconhecido' },
+  { value: 'AMBIG', label: 'Ambíguo' },
+];
+
+const SEARCH_INTERVENTIONS = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'DRUG', label: 'Droga' },
+  { value: 'BIOLOGICAL', label: 'Biológico' },
+  { value: 'DEVICE', label: 'Dispositivo' },
+  { value: 'PROCEDURE', label: 'Procedimento' },
+  { value: 'RADIATION', label: 'Radiação' },
+  { value: 'BEHAVIORAL', label: 'Comportamental' },
+  { value: 'GENETIC', label: 'Genético' },
+  { value: 'DIETARY_SUPPLEMENT', label: 'Suplemento' },
+  { value: 'COMBINATION_PRODUCT', label: 'Combinação' },
+  { value: 'DIAGNOSTIC_TEST', label: 'Teste diagnóstico' },
+  { value: 'OTHER', label: 'Outro' },
+];
+
+const SEARCH_RESULTS = [
+  { value: ANY, label: 'Qualquer' },
+  { value: 'WITH', label: 'Com resultados' },
+  { value: 'WITHOUT', label: 'Sem resultados' },
+];
+
+const COUNTRIES = [
+  'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Costa Rica', 'Dominican Republic',
+  'Ecuador', 'El Salvador', 'Guatemala', 'Honduras', 'Mexico', 'Panama', 'Paraguay', 'Peru',
+  'Puerto Rico', 'Uruguay', 'Venezuela',
+  'Australia', 'Austria', 'Belgium', 'Bulgaria', 'Canada', 'China', 'Czechia', 'Denmark',
+  'Egypt', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'India', 'Indonesia',
+  'Ireland', 'Israel', 'Italy', 'Japan', 'Malaysia', 'Netherlands', 'New Zealand', 'Norway',
+  'Philippines', 'Poland', 'Portugal', 'Romania', 'Saudi Arabia', 'Singapore', 'South Africa',
+  'South Korea', 'Spain', 'Sweden', 'Switzerland', 'Taiwan', 'Thailand', 'Turkey (Türkiye)',
+  'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Vietnam',
+];
+
+const SPONSORS = [
+  'Novo Nordisk', 'Eli Lilly', 'Pfizer', 'Roche', 'Novartis', 'Sanofi', 'AstraZeneca',
+  'Merck', 'AbbVie', 'Johnson & Johnson', 'Janssen', 'GSK', 'Bayer', 'Boehringer Ingelheim',
+  'Amgen', 'Gilead', 'Bristol Myers Squibb', 'Takeda', 'Biogen', 'Regeneron', 'Moderna',
+  'Vertex', 'Daiichi Sankyo', 'Astellas', 'Eisai', 'Teva', 'UCB', 'Ipsen', 'Ferring',
+  'Chiesi', 'Servier', 'Organon', 'CSL', 'Lundbeck', 'Menarini',
+];
+
+const CONDITIONS = [
+  'Type 2 Diabetes', 'Type 1 Diabetes', 'Obesity', 'Chronic Kidney Disease', 'Heart Failure',
+  'Hypertension', 'Coronary Artery Disease', 'Atrial Fibrillation', 'Nonalcoholic Steatohepatitis',
+  'Alzheimer Disease', 'Parkinson Disease', 'Migraine', 'Depression', 'Schizophrenia',
+  'Breast Cancer', 'Lung Cancer', 'Prostate Cancer', 'Colorectal Cancer', 'Melanoma',
+  'Multiple Myeloma', 'Lymphoma', 'Leukemia', 'Asthma', 'COPD', 'Atopic Dermatitis',
+  'Psoriasis', 'Rheumatoid Arthritis', 'Ulcerative Colitis', 'Crohn Disease', 'Osteoporosis',
+  'Osteoarthritis', 'HIV', 'COVID-19',
+];
+
+const DRUGS = [
+  'Semaglutide', 'Tirzepatide', 'Dulaglutide', 'Liraglutide', 'Insulin', 'Metformin',
+  'Empagliflozin', 'Dapagliflozin', 'Pembrolizumab', 'Nivolumab', 'Atezolizumab',
+  'Durvalumab', 'Trastuzumab', 'Bevacizumab', 'Osimertinib', 'Adalimumab', 'Dupilumab',
+  'Ustekinumab', 'Secukinumab', 'Risankizumab', 'Upadacitinib', 'Tocilizumab',
+  'Apixaban', 'Rivaroxaban', 'Atorvastatin', 'Rosuvastatin', 'Lecanemab', 'Donanemab',
+];
+
+const PAGE_SIZES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+
+function selectionLabel(selected: string[]) {
+  if (selected.length === 0) return 'Escolha um ou mais';
+  if (selected.length === 1) return selected[0];
+  return `${selected[0]} +${selected.length - 1}`;
+}
+
+function OptionPicker({
+  options,
+  selected,
+  onChange,
+  allowCustom = true,
+}: {
+  options: string[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  allowCustom?: boolean;
+}) {
+  const [draft, setDraft] = useState('');
+  const [filter, setFilter] = useState('');
+  const [extras, setExtras] = useState<string[]>([]);
+  const choices = [
+    ...options,
+    ...extras.filter(name => !options.some(item => item.toLowerCase() === name.toLowerCase())),
+  ];
+  const visible = choices.filter(name => name.toLowerCase().includes(filter.trim().toLowerCase()));
+
+  const add = () => {
+    const name = draft.trim();
+    if (!name) return;
+    const existing = choices.find(item => item.toLowerCase() === name.toLowerCase());
+    const value = existing ?? name;
+    if (!existing) setExtras(current => [...current, name]);
+    if (!selected.some(item => item.toLowerCase() === value.toLowerCase())) onChange([...selected, value]);
+    setDraft('');
+    setFilter('');
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" className="h-10 w-full justify-between gap-2 px-3 font-normal">
+          <span className={`truncate ${selected.length === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+            {selectionLabel(selected)}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2">
+        <Input
+          value={filter}
+          onChange={event => setFilter(event.target.value)}
+          placeholder="Buscar na lista"
+          className="mb-1.5 h-8 text-sm"
+        />
+        <div className="max-h-40 space-y-0.5 overflow-y-auto">
+          {visible.map(name => (
+            <label key={name} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[13px] leading-4 hover:bg-[#f6f1ea]">
+              <Checkbox
+                checked={selected.includes(name)}
+                onCheckedChange={checked => {
+                  onChange(checked ? [...selected, name] : selected.filter(item => item !== name));
+                }}
+              />
+              <span className="truncate">{name}</span>
+            </label>
+          ))}
+          {visible.length === 0 && <p className="px-1.5 py-2 text-xs text-slate-400">Nada na lista</p>}
+        </div>
+        {allowCustom && (
+          <div className="mt-2 flex gap-1.5">
+            <Input
+              value={draft}
+              onChange={event => setDraft(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  add();
+                }
+              }}
+              placeholder="Outro nome"
+              className="h-8 text-sm"
+            />
+            <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={add}>Incluir</Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function locationQuery(countries: string[]) {
+  return countries
+    .map(country => (/[\s()]/.test(country) ? `"${country}"` : country))
+    .join(' OR ');
+}
+
+const SEARCH_DROPDOWNS: { key: 'status' | 'studyType' | 'phase' | 'interventionType' | 'sex' | 'age' | 'sponsorClass' | 'results'; label: string; options: { value: string; label: string }[] }[] = [
+  { key: 'status', label: 'Status', options: SEARCH_STATUSES },
+  { key: 'studyType', label: 'Tipo de estudo', options: SEARCH_STUDY_TYPES },
+  { key: 'phase', label: 'Fase', options: SEARCH_PHASES },
+  { key: 'interventionType', label: 'Tipo de intervenção', options: SEARCH_INTERVENTIONS },
+  { key: 'sex', label: 'Sexo', options: SEARCH_SEXES },
+  { key: 'age', label: 'Idade', options: SEARCH_AGES },
+  { key: 'sponsorClass', label: 'Classe do patrocinador', options: SEARCH_SPONSOR_CLASSES },
+  { key: 'results', label: 'Resultados', options: SEARCH_RESULTS },
+];
+
+const SITE_STATUS: Record<string, string> = {
+  RECRUITING: 'Recrutando',
+  NOT_YET_RECRUITING: 'Ainda não recrutando',
+  ACTIVE_NOT_RECRUITING: 'Ativo, sem recrutar',
+  ENROLLING_BY_INVITATION: 'Por convite',
+  COMPLETED: 'Concluído',
+  SUSPENDED: 'Suspenso',
+  TERMINATED: 'Encerrado',
+  WITHDRAWN: 'Retirado',
+};
+
+function siteStatusLabel(status?: string) {
+  if (!status) return '';
+  return SITE_STATUS[status.toUpperCase().replace(/[\s,]+/g, '_')] || '';
+}
+
+function collectContacts(mod: { centralContacts?: ApiContact[]; locations?: ApiLocation[] }) {
+  const out: StudyContact[] = [];
+  const seen = new Set<string>();
+  const push = (contact: StudyContact) => {
+    const email = (contact.email || '').trim();
+    const phone = (contact.phone || '').trim();
+    if (!email && !phone) return;
+    const key = `${email.toLowerCase()}|${phone}|${(contact.place || '').toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ ...contact, name: (contact.name || '').trim(), email, phone });
+  };
+
+  for (const contact of mod.centralContacts || []) {
+    push({
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      place: 'Contato central',
+    });
+  }
+
+  for (const location of mod.locations || []) {
+    const where = [location.facility, location.city, location.country].filter(Boolean).join(', ');
+    const place = [where, siteStatusLabel(location.status)].filter(Boolean).join(' · ');
+    for (const contact of location.contacts || []) {
+      push({
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        place: place || 'Centro',
+      });
+    }
+  }
+
+  return out;
+}
+
+function focusQueries(focus?: string | string[]) {
+  return (Array.isArray(focus) ? focus : focus ? [focus] : [])
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function rankContacts(contacts: StudyContact[], focus?: string | string[]) {
+  const queries = focusQueries(focus);
+  const score = (contact: StudyContact) => {
+    const place = (contact.place || '').toLowerCase();
+    if (queries.some(query => place.includes(query))) return 0;
+    if (place.startsWith('contato central')) return 1;
+    return 2;
+  };
+  return [...contacts].sort((a, b) => score(a) - score(b) || Number(!a.email) - Number(!b.email));
+}
+
+function contactsOf(study: StudyData, focus?: string | string[]) {
+  const source = study.contacts && study.contacts.length > 0
+    ? study.contacts
+    : (study.contactName || study.contactEmail || study.contactPhone)
+      ? [{
+          name: study.contactName,
+          email: study.contactEmail,
+          phone: study.contactPhone,
+          place: 'Contato central',
+        }]
+      : [];
+  const queries = focusQueries(focus);
+  const scoped = queries.length === 0
+    ? source
+    : source.filter(contact => {
+        const place = (contact.place || '').toLowerCase();
+        if (place.startsWith('contato central')) return true;
+        return queries.some(query => place.includes(query));
+      });
+  return rankContacts(scoped, focus);
+}
+
+function mapStudy(json: any, fallbackId: string): StudyData {
   const mod = json.protocolSection || {};
   const identification = mod.identificationModule || {};
   const status = mod.statusModule || {};
   const sponsor = mod.sponsorCollaboratorsModule || {};
-  const conditions = mod.conditionsModule?.conditions || [];
+  const conditions: string[] = mod.conditionsModule?.conditions || [];
   const arms = mod.armsInterventionsModule || {};
   const design = mod.designModule || {};
   const contactsMod = mod.contactsLocationsModule || {};
-  const centralContacts = contactsMod.centralContacts || [];
-  const locations = contactsMod.locations || [];
-
-  // Fallback: if no central contact, pick the first contact from any site
-  const siteContact = (() => {
-    for (const loc of locations) {
-      const c = (loc.contacts || [])[0];
-      if (c && (c.name || c.email || c.phone)) return c;
-    }
-    return null;
-  })();
-  const contact = centralContacts[0] || siteContact || {};
+  const locations: ApiLocation[] = contactsMod.locations || [];
+  const contacts = collectContacts(contactsMod);
+  const primary = contacts.find(contact => contact.email) || contacts[0];
   const phases: string[] = design.phases || [];
-  const interventionList = (arms.interventions || []).map((i: any) => i.name).filter(Boolean);
-  const collaboratorList = (sponsor.collaborators || []).map((c: any) => c.name).filter(Boolean);
+  const interventionList = (arms.interventions || [])
+    .map((item: { name?: string }) => item.name)
+    .filter((name): name is string => !!name);
+  const collaboratorList = (sponsor.collaborators || [])
+    .map((item: { name?: string }) => item.name)
+    .filter((name): name is string => !!name);
 
   return {
-    nctId: identification.nctId || nctId,
+    nctId: identification.nctId || fallbackId,
     briefTitle: identification.briefTitle || '',
     overallStatus: status.overallStatus || '',
     startDate: status.startDateStruct?.date || '',
@@ -119,11 +479,57 @@ async function fetchStudy(nctId: string): Promise<StudyData> {
     phase: phases.join(', ').replace('PHASE', 'Fase'),
     enrollmentCount: design.enrollmentInfo?.count ?? undefined,
     locationCount: locations.length || undefined,
-    contactName: contact.name || '',
-    contactPhone: contact.phone || '',
-    contactEmail: contact.email || '',
+    contactName: primary?.name || '',
+    contactPhone: primary?.phone || '',
+    contactEmail: primary?.email || '',
+    contacts,
     origin: '',
     error: false,
+  };
+}
+
+async function fetchStudy(nctId: string): Promise<StudyData> {
+  const res = await fetch(
+    `https://clinicaltrials.gov/api/v2/studies/${encodeURIComponent(nctId)}?fields=${STUDY_FIELDS}`,
+  );
+  if (!res.ok) throw new Error('Not ok');
+  return mapStudy(await res.json(), nctId);
+}
+
+async function queryStudies(params: SearchParams, pageToken?: string, pageSize = 100) {
+  const url = new URL('https://clinicaltrials.gov/api/v2/studies');
+  if (params.condition.length > 0) url.searchParams.set('query.cond', locationQuery(params.condition));
+  if (params.drug.length > 0) url.searchParams.set('query.intr', locationQuery(params.drug));
+  if (params.countries.length > 0) url.searchParams.set('query.locn', locationQuery(params.countries));
+  if (params.sponsors.length > 0) url.searchParams.set('query.lead', locationQuery(params.sponsors));
+  if (params.status && params.status !== ANY) url.searchParams.set('filter.overallStatus', params.status);
+  const advanced = [
+    params.studyType !== ANY ? `AREA[StudyType]${params.studyType}` : '',
+    params.phase !== ANY ? `AREA[Phase]${params.phase}` : '',
+    params.sex !== ANY ? `AREA[Sex]${params.sex}` : '',
+    params.age !== ANY ? `AREA[StdAge]${params.age}` : '',
+    params.sponsorClass !== ANY ? `AREA[LeadSponsorClass]${params.sponsorClass}` : '',
+    params.interventionType !== ANY ? `AREA[InterventionType]${params.interventionType}` : '',
+    params.results === 'WITH' ? 'AREA[HasResults]true' : '',
+    params.results === 'WITHOUT' ? 'AREA[HasResults]false' : '',
+  ].filter(Boolean);
+  if (advanced.length > 0) url.searchParams.set('filter.advanced', advanced.join(' AND '));
+  url.searchParams.set('fields', STUDY_FIELDS);
+  url.searchParams.set('pageSize', String(pageSize));
+  if (!pageToken) url.searchParams.set('countTotal', 'true');
+  if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('search failed');
+  const json = await res.json();
+  const studies = ((json.studies || []) as any[])
+    .map(study => mapStudy(study, study?.protocolSection?.identificationModule?.nctId || ''))
+    .filter(study => study.nctId);
+
+  return {
+    studies,
+    totalCount: typeof json.totalCount === 'number' ? json.totalCount as number : undefined,
+    nextPageToken: typeof json.nextPageToken === 'string' ? json.nextPageToken as string : undefined,
   };
 }
 
@@ -143,14 +549,55 @@ function TruncatedCell({ value, maxW = 'max-w-[160px]' }: { value?: string; maxW
   );
 }
 
+function formatStudyDate(value?: string) {
+  if (!value) return '';
+  const match = value.match(/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
+  if (!match) return value;
+  const [, year, month, day] = match;
+  if (day && month) return `${day}/${month}/${year}`;
+  if (month) return `${month}/${year}`;
+  return year;
+}
+
+function ContactCell({ contacts }: { contacts: StudyContact[] }) {
+  if (contacts.length === 0) return <span className="text-xs text-slate-400">-</span>;
+
+  return (
+    <div className="max-h-32 w-[250px] space-y-2 overflow-y-auto rounded-lg border border-[#ece3d8] bg-[#fcfbf9] p-2">
+      {contacts.map((contact, index) => (
+        <div key={`${contact.email || ''}-${contact.phone || ''}-${index}`} className="space-y-0.5">
+          {contact.name && (
+            <div className="text-xs font-medium text-slate-900 dark:text-slate-100">{contact.name}</div>
+          )}
+          {contact.place && <div className="text-[11px] leading-4 text-slate-500">{contact.place}</div>}
+          {contact.email && (
+            <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+              <Mail className="h-3 w-3 shrink-0 opacity-70" />
+              <span className="break-all">{contact.email}</span>
+            </a>
+          )}
+          {contact.phone && (
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <Phone className="h-3 w-3 shrink-0 opacity-70" />
+              {contact.phone}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StudyTable({
   studies,
   isFetching,
   actionSlot,
+  contactFocus,
 }: {
   studies: StudyData[];
   isFetching?: boolean;
   actionSlot: (study: StudyData) => React.ReactNode;
+  contactFocus?: string | string[];
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -167,7 +614,15 @@ function StudyTable({
       (s.leadSponsor || '').toLowerCase().includes(q) ||
       (s.indication || '').toLowerCase().includes(q) ||
       (s.interventions || []).join(' ').toLowerCase().includes(q) ||
-      (s.briefTitle || '').toLowerCase().includes(q);
+      (s.briefTitle || '').toLowerCase().includes(q) ||
+      (s.contactName || '').toLowerCase().includes(q) ||
+      (s.contactEmail || '').toLowerCase().includes(q) ||
+      (s.contacts || []).some(contact =>
+        (contact.name || '').toLowerCase().includes(q) ||
+        (contact.email || '').toLowerCase().includes(q) ||
+        (contact.phone || '').toLowerCase().includes(q) ||
+        (contact.place || '').toLowerCase().includes(q),
+      );
     const matchStatus = statusFilter === 'Todos' || s.overallStatus === statusFilter;
     return matchSearch && matchStatus;
   }), [studies, searchQuery, statusFilter]);
@@ -279,7 +734,7 @@ function StudyTable({
 
                   {/* Start */}
                   <TableCell className="text-sm whitespace-nowrap tabular-nums">
-                    {study.startDate || <span className="text-slate-400">-</span>}
+                    {formatStudyDate(study.startDate) || <span className="text-slate-400">-</span>}
                   </TableCell>
 
                   {/* NCT ID */}
@@ -304,29 +759,8 @@ function StudyTable({
                     <TruncatedCell value={(study.collaborators || []).join('; ')} maxW="max-w-[140px]" />
                   </TableCell>
 
-                  {/* Contact */}
                   <TableCell>
-                    {!study.error && (study.contactName || study.contactEmail || study.contactPhone) ? (
-                      <div className="space-y-1">
-                        {study.contactName && (
-                          <div className="text-xs font-medium text-slate-900 dark:text-slate-100">{study.contactName}</div>
-                        )}
-                        {study.contactEmail && (
-                          <a href={`mailto:${study.contactEmail}`} className="text-xs text-primary hover:underline flex items-center gap-1">
-                            <Mail className="h-3 w-3 opacity-70" />
-                            <span className="truncate max-w-[140px]">{study.contactEmail}</span>
-                          </a>
-                        )}
-                        {study.contactPhone && (
-                          <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <Phone className="h-3 w-3 opacity-70" />
-                            {study.contactPhone}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400">-</span>
-                    )}
+                    {study.error ? <span className="text-xs text-slate-400">-</span> : <ContactCell contacts={contactsOf(study, contactFocus)} />}
                   </TableCell>
 
                   {/* Action */}
@@ -354,11 +788,15 @@ function SavedList({
   onRemove,
   onExport,
   onUpdateOrigin,
+  onRefresh,
+  isRefreshing,
 }: {
   saved: SavedStudy[];
   onRemove: (nctId: string) => void;
   onExport: () => void;
   onUpdateOrigin: (nctId: string, origin: string) => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -367,10 +805,17 @@ function SavedList({
   // This component is read-only for origin; inline edit handled via prop
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={onExport} disabled={saved.length === 0} className="gap-2">
-          <Download className="h-4 w-4" /> Exportar CSV
-        </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">Atualizar busca de novo os contatos e o status, sem reenviar a planilha.</p>
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={onRefresh} disabled={saved.length === 0 || isRefreshing} className="gap-2">
+            {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Atualizar contatos
+          </Button>
+          <Button size="sm" variant="outline" onClick={onExport} disabled={saved.length === 0} className="gap-2">
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+        </div>
       </div>
 
       {saved.length === 0 ? (
@@ -457,7 +902,7 @@ function SavedList({
                   <TableCell className="text-sm text-right tabular-nums">
                     {study.enrollmentCount != null ? study.enrollmentCount.toLocaleString() : <span className="text-slate-400">-</span>}
                   </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">{study.startDate || <span className="text-slate-400">-</span>}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{formatStudyDate(study.startDate) || <span className="text-slate-400">-</span>}</TableCell>
                   <TableCell className="font-mono text-xs">
                     <a
                       href={`https://clinicaltrials.gov/study/${study.nctId}`}
@@ -470,23 +915,7 @@ function SavedList({
                   </TableCell>
                   <TableCell className="text-sm"><TruncatedCell value={(study.collaborators || []).join('; ')} maxW="max-w-[120px]" /></TableCell>
                   <TableCell>
-                    {(study.contactName || study.contactEmail || study.contactPhone) ? (
-                      <div className="space-y-1">
-                        {study.contactName && <div className="text-xs font-medium">{study.contactName}</div>}
-                        {study.contactEmail && (
-                          <a href={`mailto:${study.contactEmail}`} className="text-xs text-primary hover:underline flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            <span className="truncate max-w-[120px]">{study.contactEmail}</span>
-                          </a>
-                        )}
-                        {study.contactPhone && (
-                          <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {study.contactPhone}
-                          </div>
-                        )}
-                      </div>
-                    ) : <span className="text-xs text-slate-400">-</span>}
+                    <ContactCell contacts={contactsOf(study)} />
                   </TableCell>
                   <TableCell>
                     <Button
@@ -521,9 +950,40 @@ export default function Dashboard() {
   const [hasData, setHasData] = useState(false);
   const [activeTab, setActiveTab] = useState('results');
   const [savedStudies, setSavedStudies] = useState<SavedStudy[]>(loadSaved);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [contactFocus, setContactFocus] = useState<string[]>([]);
+  const [searchTotal, setSearchTotal] = useState<number | null>(null);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
+  const [pageSize, setPageSize] = useState(100);
+  const [searchForm, setSearchForm] = useState<SearchParams>({
+    condition: [],
+    drug: [],
+    countries: [],
+    sponsors: [],
+    status: 'RECRUITING',
+    studyType: ANY,
+    phase: ANY,
+    sex: ANY,
+    age: ANY,
+    sponsorClass: ANY,
+    interventionType: ANY,
+    results: ANY,
+  });
+  const lastQuery = useRef<SearchParams>(searchForm);
+  const storageWarned = useRef(false);
 
-  // Persist saved whenever it changes
-  useEffect(() => { persistSaved(savedStudies); }, [savedStudies]);
+  useEffect(() => {
+    const savedOk = persistSaved(savedStudies);
+    if (!savedOk && !storageWarned.current) {
+      storageWarned.current = true;
+      toast({
+        title: 'A lista não coube no navegador',
+        description: 'Os contatos seguem nesta tela, mas o navegador recusou gravar a lista completa.',
+        variant: 'destructive',
+      });
+    }
+  }, [savedStudies, toast]);
 
   const savedIds = useMemo(() => new Set(savedStudies.map(s => s.nctId)), [savedStudies]);
   const totalStudies = studies.length + savedStudies.length;
@@ -540,7 +1000,7 @@ export default function Dashboard() {
     [studies, savedStudies],
   );
   const highlightedStudies = useMemo(
-    () => [...savedStudies, ...studies].filter(study => !!study.contactEmail || !!study.contactPhone).length,
+    () => [...savedStudies, ...studies].filter(study => contactsOf(study).length > 0).length,
     [savedStudies, studies],
   );
 
@@ -593,6 +1053,9 @@ export default function Dashboard() {
 
       setHasData(true);
       setActiveTab('results');
+      setContactFocus([]);
+      setNextPageToken(undefined);
+      setSearchTotal(null);
       startFetching(newIds);
 
     } catch (err) {
@@ -632,6 +1095,76 @@ export default function Dashboard() {
     setIsFetching(false);
   };
 
+  const runSearch = async () => {
+    const hasText = searchForm.condition.length > 0 || searchForm.drug.length > 0 || searchForm.countries.length > 0 || searchForm.sponsors.length > 0;
+    const hasDropdown = SEARCH_DROPDOWNS.some(filter => searchForm[filter.key] !== ANY);
+    if (!hasText && !hasDropdown) {
+      toast({ title: 'Informe um texto ou escolha um filtro', variant: 'destructive' });
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const page = await queryStudies(searchForm, undefined, pageSize);
+      lastQuery.current = searchForm;
+      setStudies(page.studies);
+      setHasData(true);
+      setActiveTab('results');
+      setContactFocus(searchForm.countries);
+      setSearchTotal(page.totalCount ?? page.studies.length);
+      setNextPageToken(page.nextPageToken);
+      if (page.studies.length === 0) toast({ title: 'Nenhum estudo encontrado para essa busca' });
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Não foi possível consultar ClinicalTrials.gov', variant: 'destructive' });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!nextPageToken || isSearching) return;
+    setIsSearching(true);
+    try {
+      const page = await queryStudies(lastQuery.current, nextPageToken, pageSize);
+      setStudies(prev => {
+        const seen = new Set(prev.map(study => study.nctId));
+        return [...prev, ...page.studies.filter(study => !seen.has(study.nctId))];
+      });
+      setNextPageToken(page.nextPageToken);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Não foi possível carregar mais estudos', variant: 'destructive' });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const refreshSaved = async () => {
+    if (savedStudies.length === 0 || isRefreshing) return;
+    setIsRefreshing(true);
+    setProgress({ current: 0, total: savedStudies.length });
+    const snapshot = savedStudies;
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < snapshot.length; i += BATCH_SIZE) {
+      const batch = snapshot.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(async saved => {
+        try {
+          const fresh = await fetchStudy(saved.nctId);
+          return { ...fresh, origin: saved.origin, savedAt: saved.savedAt };
+        } catch {
+          return saved;
+        }
+      }));
+      setSavedStudies(prev => {
+        const byId = new Map(results.map(study => [study.nctId, study]));
+        return prev.map(study => byId.get(study.nctId) ?? study);
+      });
+      setProgress({ current: Math.min(i + BATCH_SIZE, snapshot.length), total: snapshot.length });
+    }
+    setIsRefreshing(false);
+    toast({ title: 'Lista atualizada com contatos ao vivo.' });
+  };
+
   // ── Save / remove ────────────────────────────────────────────────────────────
   const saveStudy = (study: StudyData) => {
     if (savedIds.has(study.nctId)) return;
@@ -658,7 +1191,7 @@ export default function Dashboard() {
     return `"${s.replace(/"/g, '""')}"`;
   };
 
-  const exportCSV = (list: StudyData[]) => {
+  const exportCSV = (list: StudyData[], focus?: string[]) => {
     const headers = [
       'NCT ID', 'Área Terapêutica', 'Patrocinador', 'Origem (indicação)', 'Indicação',
       'Intervenção', 'Fase', 'Status', 'Nº de centros', 'Nº de participantes',
@@ -675,11 +1208,11 @@ export default function Dashboard() {
       escapeField(d.overallStatus),
       escapeField(d.locationCount),
       escapeField(d.enrollmentCount),
-      escapeField(d.startDate),
+      escapeField(formatStudyDate(d.startDate)),
       escapeField((d.collaborators || []).join('; ')),
-      escapeField(d.contactName),
-      escapeField(d.contactEmail),
-      escapeField(d.contactPhone),
+      escapeField(contactsOf(d, focus).map(contact => [contact.name, contact.place].filter(Boolean).join(' — ')).join(' | ')),
+      escapeField(contactsOf(d, focus).map(contact => contact.email || '').join(' | ')),
+      escapeField(contactsOf(d, focus).map(contact => contact.phone || '').join(' | ')),
     ]);
     const csv = [headers.map(escapeField).join(','), ...rows.map(r => r.join(','))].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -724,7 +1257,7 @@ export default function Dashboard() {
                     Espaço de trabalho para prospecção de estudos clínicos
                   </h1>
                   <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
-                    Envie uma planilha, detecte identificadores NCT, revise os dados dos estudos e exporte uma lista de trabalho limpa.
+                    Busque ao vivo por condição, droga, local ou patrocinador, ou envie uma planilha com NCT. As colunas são as mesmas; os contatos saem atualizados da API.
                   </p>
                 </div>
               </div>
@@ -841,13 +1374,112 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {isFetching && (
+        <section className="rounded-[28px] border border-[#e7dfd3] bg-white p-6 shadow-[0_18px_44px_rgba(48,26,70,0.06)] md:p-8">
+          <form
+            className="space-y-5"
+            onSubmit={event => {
+              event.preventDefault();
+              void runSearch();
+            }}
+          >
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">Busca ao vivo</div>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[#34204f]">Encontre estudos sem reenviar a planilha</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  A tabela não muda. O que muda é a origem: ClinicalTrials.gov devolve o estudo e todos os contatos com e-mail ou telefone, com a sede ao lado.
+                </p>
+              </div>
+              {searchTotal != null && (
+                <div className="text-sm font-medium text-[#45246b]">{searchTotal} estudos na API</div>
+              )}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Condição</span>
+                <OptionPicker
+                  options={CONDITIONS}
+                  selected={searchForm.condition}
+                  onChange={condition => setSearchForm(prev => ({ ...prev, condition }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Droga</span>
+                <OptionPicker
+                  options={DRUGS}
+                  selected={searchForm.drug}
+                  onChange={drug => setSearchForm(prev => ({ ...prev, drug }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Países</span>
+                <OptionPicker
+                  options={COUNTRIES}
+                  selected={searchForm.countries}
+                  allowCustom={false}
+                  onChange={countries => setSearchForm(prev => ({ ...prev, countries }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Patrocinadores</span>
+                <OptionPicker
+                  options={SPONSORS}
+                  selected={searchForm.sponsors}
+                  onChange={sponsors => setSearchForm(prev => ({ ...prev, sponsors }))}
+                />
+              </div>
+              {SEARCH_DROPDOWNS.map(filter => (
+                <label key={filter.key} className="space-y-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{filter.label}</span>
+                  <Select
+                    value={searchForm[filter.key]}
+                    onValueChange={value => setSearchForm(prev => ({ ...prev, [filter.key]: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filter.options.map(option => (
+                        <SelectItem key={`${filter.key}-${option.value}`} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Por vez</span>
+                <Select value={String(pageSize)} onValueChange={value => setPageSize(Number(value))}>
+                  <SelectTrigger className="h-11 w-[120px] rounded-2xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZES.map(size => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="submit"
+                disabled={isSearching || isFetching}
+                className="h-11 rounded-2xl bg-[#45246b] px-6 text-white hover:bg-[#341a51]"
+              >
+                {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                Buscar estudos
+              </Button>
+            </div>
+          </form>
+        </section>
+
+        {(isFetching || isRefreshing) && progress.total > 0 && (
           <Card className="overflow-hidden rounded-[26px] border border-[#eadfce] bg-[linear-gradient(135deg,rgba(69,36,107,0.05),rgba(255,255,255,0.88))] shadow-[0_16px_36px_rgba(48,26,70,0.06)]">
             <CardContent className="flex items-center gap-4 p-5">
               <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#45246b]" />
               <div className="flex-1 space-y-1">
                 <div className="flex justify-between text-sm font-medium">
-                  <span className="text-[#45246b]">Montando sua base de estudos: {progress.current} de {progress.total}</span>
+                  <span className="text-[#45246b]">{isRefreshing ? 'Atualizando contatos da lista' : 'Montando sua base de estudos'}: {progress.current} de {progress.total}</span>
                   <span className="text-[#45246b]/70">{Math.round((progress.current / progress.total) * 100)}%</span>
                 </div>
                 <Progress value={(progress.current / progress.total) * 100} className="h-2" />
@@ -937,13 +1569,14 @@ export default function Dashboard() {
                 {studies.length > 0 ? (
                   <>
                     <div className="mb-3 flex justify-end">
-                      <Button size="sm" variant="outline" onClick={() => exportCSV(studies)} disabled={studies.length === 0 || isFetching} className="gap-2 rounded-xl border-[#ece3d8] bg-white/90 hover:bg-white">
+                      <Button size="sm" variant="outline" onClick={() => exportCSV(studies, contactFocus)} disabled={studies.length === 0 || isFetching} className="gap-2 rounded-xl border-[#ece3d8] bg-white/90 hover:bg-white">
                         <Download className="h-4 w-4" /> Exportar CSV
                       </Button>
                     </div>
                     <StudyTable
                       studies={studies}
-                      isFetching={isFetching}
+                      isFetching={isFetching || isSearching}
+                      contactFocus={contactFocus}
                       actionSlot={(study) =>
                         savedIds.has(study.nctId) ? (
                           <Button size="sm" variant="ghost" disabled className="h-7 gap-1 px-2 text-xs text-emerald-600">
@@ -961,13 +1594,21 @@ export default function Dashboard() {
                         )
                       }
                     />
+                    {nextPageToken && (
+                      <div className="mt-3 flex justify-center">
+                        <Button variant="outline" onClick={() => void loadMore()} disabled={isSearching} className="rounded-xl border-[#ece3d8] bg-white">
+                          {isSearching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Carregar mais{searchTotal != null ? ` (${studies.length} de ${searchTotal})` : ''}
+                        </Button>
+                      </div>
+                    )}
                   </>
                 ) : (
                   !isFetching && (
                     <Card className="mt-4 rounded-[24px] border border-dashed border-[#ddcfbd] bg-white shadow-none">
                       <CardContent className="flex flex-col items-center justify-center py-16 text-slate-500">
                         <UploadCloud className="mb-3 h-8 w-8 text-[#b48654]" />
-                        Envie uma planilha para preencher a tabela de resultados ao vivo.
+                        Busque ao vivo ou envie uma planilha para preencher a tabela.
                       </CardContent>
                     </Card>
                   )
@@ -980,6 +1621,8 @@ export default function Dashboard() {
                   onRemove={removeStudy}
                   onExport={() => exportCSV(savedStudies)}
                   onUpdateOrigin={updateSavedOrigin}
+                  onRefresh={() => void refreshSaved()}
+                  isRefreshing={isRefreshing}
                 />
               </TabsContent>
             </Tabs>
