@@ -543,6 +543,19 @@ function matchesIdentifier(study: StudyData, term: string) {
   return [study.nctId, study.acronym, study.orgStudyId].some(value => (value || '').toLowerCase() === needle);
 }
 
+function letterSwapVariants(term: string) {
+  const value = term.trim();
+  const variants = new Set<string>();
+  [...value].forEach((char, index) => {
+    const swap = char.toLowerCase() === 'y' ? 'i' : char.toLowerCase() === 'i' ? 'y' : '';
+    if (!swap) return;
+    const next = [...value];
+    next[index] = char === char.toUpperCase() ? swap.toUpperCase() : swap;
+    variants.add(next.join(''));
+  });
+  return [...variants].filter(item => item.toLowerCase() !== value.toLowerCase()).slice(0, 4);
+}
+
 async function executeStudyQuery(
   params: SearchParams,
   target: SearchParams['termTarget'] | null,
@@ -599,10 +612,16 @@ async function queryStudies(params: SearchParams, pageToken?: string, pageSize =
   }
 
   if (looksLikeSigla(term)) {
-    const exact = await executeStudyQuery(params, 'id', undefined, pageSize);
-    const matched = exact.studies.filter(study => matchesIdentifier(study, term));
+    const variants = [term, ...letterSwapVariants(term)];
+    const pages = await Promise.all(variants.map(variant => executeStudyQuery({ ...params, term: variant }, 'id', undefined, pageSize)));
+    const seen = new Set<string>();
+    const matched = pages.flatMap(page => page.studies).filter(study => {
+      if (!variants.some(variant => matchesIdentifier(study, variant)) || seen.has(study.nctId)) return false;
+      seen.add(study.nctId);
+      return true;
+    });
     if (matched.length > 0) {
-      return { ...exact, studies: matched, totalCount: matched.length, nextPageToken: undefined, termTarget: 'id' as const };
+      return { studies: matched, totalCount: matched.length, nextPageToken: undefined, termTarget: 'id' as const };
     }
   }
 
