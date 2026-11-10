@@ -39,6 +39,9 @@ type StudyData = {
   therapeuticArea?: string;   // derived from conditions[0]
   indication?: string;         // all conditions joined
   interventions?: string[];
+  interventionAliases?: string[];
+  acronym?: string;
+  orgStudyId?: string;
   phase?: string;
   enrollmentCount?: number;
   locationCount?: number;
@@ -91,6 +94,7 @@ function getStatusColor(status?: string) {
 }
 
 type SearchParams = {
+  term: string;
   condition: string[];
   drug: string[];
   countries: string[];
@@ -103,6 +107,7 @@ type SearchParams = {
   sponsorClass: string;
   interventionType: string;
   results: string;
+  termTarget?: 'id' | 'spons' | 'intr' | 'term';
 };
 
 type ApiContact = { name?: string; phone?: string; email?: string };
@@ -115,8 +120,8 @@ type ApiLocation = {
 };
 
 const STUDY_FIELDS = [
-  'NCTId', 'BriefTitle', 'OverallStatus', 'StartDate', 'LeadSponsorName', 'CollaboratorName',
-  'Condition', 'InterventionName', 'Phase', 'EnrollmentCount', 'LocationFacility', 'LocationCity',
+  'NCTId', 'BriefTitle', 'Acronym', 'OrgStudyId', 'OverallStatus', 'StartDate', 'LeadSponsorName', 'CollaboratorName',
+  'Condition', 'InterventionName', 'InterventionOtherName', 'Phase', 'EnrollmentCount', 'LocationFacility', 'LocationCity',
   'LocationCountry', 'LocationStatus', 'CentralContactName', 'CentralContactPhone', 'CentralContactEMail',
   'LocationContactName', 'LocationContactPhone', 'LocationContactEMail',
 ].join(',');
@@ -173,14 +178,14 @@ const SEARCH_AGES = [
 ];
 
 const SEARCH_SPONSOR_CLASSES = [
-  { value: ANY, label: 'Qualquer' },
-  { value: 'INDUSTRY', label: 'Indústria' },
+  { value: ANY, label: 'Todos' },
+  { value: 'INDUSTRY', label: 'Indústria e biotech' },
   { value: 'NIH', label: 'NIH' },
   { value: 'FED', label: 'Governo federal dos EUA' },
   { value: 'OTHER_GOV', label: 'Outro governo' },
   { value: 'NETWORK', label: 'Rede' },
   { value: 'INDIV', label: 'Investigador' },
-  { value: 'OTHER', label: 'Outro' },
+  { value: 'OTHER', label: 'Universidades e organizações' },
   { value: 'UNKNOWN', label: 'Desconhecido' },
   { value: 'AMBIG', label: 'Ambíguo' },
 ];
@@ -258,12 +263,14 @@ function OptionPicker({
   onChange,
   allowCustom = true,
   allowAll = false,
+  customPlaceholder = 'Outro nome',
 }: {
   options: string[];
   selected: string[];
   onChange: (values: string[]) => void;
   allowCustom?: boolean;
   allowAll?: boolean;
+  customPlaceholder?: string;
 }) {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState('');
@@ -336,7 +343,7 @@ function OptionPicker({
                   add();
                 }
               }}
-              placeholder="Outro nome"
+              placeholder={customPlaceholder}
               className="h-8 text-sm"
             />
             <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={add}>Incluir</Button>
@@ -374,6 +381,18 @@ const SITE_STATUS: Record<string, string> = {
   TERMINATED: 'Encerrado',
   WITHDRAWN: 'Retirado',
 };
+
+function interventionText(study: StudyData) {
+  const names = (study.interventions || []).map(name => name.trim()).filter(Boolean);
+  const aliases = (study.interventionAliases || [])
+    .map(name => name.trim())
+    .filter(name => name && !names.some(item => item.toLowerCase() === name.toLowerCase()));
+  const head = names.length > 0 ? names : aliases;
+  const sigla = [study.acronym, head.length === 0 ? study.orgStudyId : '']
+    .map(name => (name || '').trim())
+    .filter(name => name && !head.some(item => item.toLowerCase() === name.toLowerCase()));
+  return [...head, ...sigla].join(' · ');
+}
 
 function siteStatusLabel(status?: string) {
   if (!status) return '';
@@ -473,6 +492,9 @@ function mapStudy(json: any, fallbackId: string): StudyData {
   const interventionList = (arms.interventions || [])
     .map((item: { name?: string }) => item.name)
     .filter((name): name is string => !!name);
+  const interventionAliases = (arms.interventions || [])
+    .flatMap((item: { otherNames?: string[] }) => item.otherNames || [])
+    .filter((name): name is string => !!name);
   const collaboratorList = (sponsor.collaborators || [])
     .map((item: { name?: string }) => item.name)
     .filter((name): name is string => !!name);
@@ -487,6 +509,9 @@ function mapStudy(json: any, fallbackId: string): StudyData {
     therapeuticArea: conditions[0] || '',
     indication: conditions.join('; '),
     interventions: interventionList,
+    interventionAliases,
+    acronym: identification.acronym || '',
+    orgStudyId: identification.orgStudyIdInfo?.id || '',
     phase: phases.join(', ').replace('PHASE', 'Fase'),
     enrollmentCount: design.enrollmentInfo?.count ?? undefined,
     locationCount: locations.length || undefined,
@@ -507,13 +532,35 @@ async function fetchStudy(nctId: string): Promise<StudyData> {
   return mapStudy(await res.json(), nctId);
 }
 
-async function queryStudies(params: SearchParams, pageToken?: string, pageSize = 100) {
+function looksLikeSigla(term: string) {
+  const value = term.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{1,24}$/.test(value)) return false;
+  return !/^(university|universidad|universidade|college|hospital|institute|institut)$/i.test(value);
+}
+
+function matchesIdentifier(study: StudyData, term: string) {
+  const needle = term.trim().toLowerCase();
+  return [study.nctId, study.acronym, study.orgStudyId].some(value => (value || '').toLowerCase() === needle);
+}
+
+async function executeStudyQuery(
+  params: SearchParams,
+  target: SearchParams['termTarget'] | null,
+  pageToken: string | undefined,
+  pageSize: number,
+) {
   const url = new URL('https://clinicaltrials.gov/api/v2/studies');
+  const term = params.term.trim();
+  if (target === 'id' && term) url.searchParams.set('query.id', locationQuery([term]));
+  if (target === 'term' && term) url.searchParams.set('query.term', locationQuery([term]));
+  const drugs = target === 'intr' && term ? [...params.drug, term] : params.drug;
+  const sponsors = target === 'spons' && term ? [...params.sponsors, term] : params.sponsors;
   if (params.condition.length > 0) url.searchParams.set('query.cond', locationQuery(params.condition));
-  if (params.drug.length > 0) url.searchParams.set('query.intr', locationQuery(params.drug));
+  if (drugs.length > 0) url.searchParams.set('query.intr', locationQuery(drugs));
   if (params.countries.length > 0) url.searchParams.set('query.locn', locationQuery(params.countries));
-  if (params.sponsors.length > 0) url.searchParams.set('query.lead', locationQuery(params.sponsors));
-  if (params.status && params.status !== ANY) url.searchParams.set('filter.overallStatus', params.status);
+  if (sponsors.length > 0) url.searchParams.set('query.spons', locationQuery(sponsors));
+  const status = target === 'id' ? ANY : params.status;
+  if (status && status !== ANY) url.searchParams.set('filter.overallStatus', status);
   const advanced = [
     params.studyType !== ANY ? `AREA[StudyType]${params.studyType}` : '',
     params.phase !== ANY ? `AREA[Phase]${params.phase}` : '',
@@ -541,7 +588,36 @@ async function queryStudies(params: SearchParams, pageToken?: string, pageSize =
     studies,
     totalCount: typeof json.totalCount === 'number' ? json.totalCount as number : undefined,
     nextPageToken: typeof json.nextPageToken === 'string' ? json.nextPageToken as string : undefined,
+    termTarget: target,
   };
+}
+
+async function queryStudies(params: SearchParams, pageToken?: string, pageSize = 100) {
+  const term = params.term.trim();
+  if (pageToken || !term) {
+    return executeStudyQuery(params, params.termTarget ?? (term ? 'term' : null), pageToken, pageSize);
+  }
+
+  if (looksLikeSigla(term)) {
+    const exact = await executeStudyQuery(params, 'id', undefined, pageSize);
+    const matched = exact.studies.filter(study => matchesIdentifier(study, term));
+    if (matched.length > 0) {
+      return { ...exact, studies: matched, totalCount: matched.length, nextPageToken: undefined, termTarget: 'id' as const };
+    }
+  }
+
+  const namedOrganization = /[A-Za-z]/.test(term) && !/\d/.test(term);
+  if (namedOrganization) {
+    const bySponsor = await executeStudyQuery(params, 'spons', undefined, pageSize);
+    if (bySponsor.studies.length > 0) return { ...bySponsor, termTarget: 'spons' as const };
+  }
+
+  if (/\d|-/.test(term)) {
+    const byDrug = await executeStudyQuery(params, 'intr', undefined, pageSize);
+    if (byDrug.studies.length > 0) return { ...byDrug, termTarget: 'intr' as const };
+  }
+
+  return executeStudyQuery(params, 'term', undefined, pageSize);
 }
 
 // ─── Shared table component ───────────────────────────────────────────────────
@@ -625,6 +701,10 @@ function StudyTable({
       (s.leadSponsor || '').toLowerCase().includes(q) ||
       (s.indication || '').toLowerCase().includes(q) ||
       (s.interventions || []).join(' ').toLowerCase().includes(q) ||
+      (s.interventionAliases || []).join(' ').toLowerCase().includes(q) ||
+      (s.acronym || '').toLowerCase().includes(q) ||
+      (s.orgStudyId || '').toLowerCase().includes(q) ||
+      (s.collaborators || []).join(' ').toLowerCase().includes(q) ||
       (s.briefTitle || '').toLowerCase().includes(q) ||
       (s.contactName || '').toLowerCase().includes(q) ||
       (s.contactEmail || '').toLowerCase().includes(q) ||
@@ -644,7 +724,7 @@ function StudyTable({
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Buscar estudos, patrocinadores, indicações..."
+            placeholder="Buscar sigla, código, universidade ou biotech..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
@@ -712,7 +792,7 @@ function StudyTable({
 
                   {/* Intervention */}
                   <TableCell className="text-sm">
-                    <TruncatedCell value={(study.interventions || []).join('; ')} maxW="max-w-[140px]" />
+                    <TruncatedCell value={interventionText(study)} maxW="max-w-[140px]" />
                   </TableCell>
 
                   {/* Phase */}
@@ -900,7 +980,7 @@ function SavedList({
                   </TableCell>
 
                   <TableCell className="text-sm"><TruncatedCell value={study.indication} maxW="max-w-[140px]" /></TableCell>
-                  <TableCell className="text-sm"><TruncatedCell value={(study.interventions || []).join('; ')} maxW="max-w-[120px]" /></TableCell>
+                  <TableCell className="text-sm"><TruncatedCell value={interventionText(study)} maxW="max-w-[120px]" /></TableCell>
                   <TableCell className="text-sm whitespace-nowrap">{study.phase || <span className="text-slate-400">-</span>}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={`text-xs border shadow-none whitespace-nowrap ${getStatusColor(study.overallStatus)}`}>
@@ -968,6 +1048,7 @@ export default function Dashboard() {
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [pageSize, setPageSize] = useState(100);
   const [searchForm, setSearchForm] = useState<SearchParams>({
+    term: '',
     condition: [],
     drug: [],
     countries: [],
@@ -1107,7 +1188,7 @@ export default function Dashboard() {
   };
 
   const runSearch = async () => {
-    const hasText = searchForm.condition.length > 0 || searchForm.drug.length > 0 || searchForm.countries.length > 0 || searchForm.sponsors.length > 0;
+    const hasText = searchForm.term.trim().length > 0 || searchForm.condition.length > 0 || searchForm.drug.length > 0 || searchForm.countries.length > 0 || searchForm.sponsors.length > 0;
     const hasDropdown = SEARCH_DROPDOWNS.some(filter => searchForm[filter.key] !== ANY);
     if (!hasText && !hasDropdown) {
       toast({ title: 'Informe um texto ou escolha um filtro', variant: 'destructive' });
@@ -1116,7 +1197,7 @@ export default function Dashboard() {
     setIsSearching(true);
     try {
       const page = await queryStudies(searchForm, undefined, pageSize);
-      lastQuery.current = searchForm;
+      lastQuery.current = { ...searchForm, termTarget: page.termTarget ?? undefined };
       setStudies(page.studies);
       setHasData(true);
       setActiveTab('results');
@@ -1214,7 +1295,7 @@ export default function Dashboard() {
       escapeField(d.leadSponsor),
       escapeField((d as SavedStudy).origin),
       escapeField(d.indication),
-      escapeField((d.interventions || []).join('; ')),
+      escapeField(interventionText(d)),
       escapeField(d.phase),
       escapeField(d.overallStatus),
       escapeField(d.locationCount),
@@ -1428,6 +1509,15 @@ export default function Dashboard() {
                 <div className="text-sm font-medium text-[#45246b]">{searchTotal} estudos na API</div>
               )}
             </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Sigla, código ou nome livre</span>
+              <Input
+                value={searchForm.term}
+                onChange={event => setSearchForm(prev => ({ ...prev, term: event.target.value }))}
+                placeholder="JNJ-2113, sigla da Janssen, universidade ou biotech"
+                className="h-10"
+              />
+            </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Condição</span>
@@ -1443,6 +1533,7 @@ export default function Dashboard() {
                   options={DRUGS}
                   selected={searchForm.drug}
                   allowAll
+                  customPlaceholder="Código ou droga sem nome"
                   onChange={drug => setSearchForm(prev => ({ ...prev, drug }))}
                 />
               </div>
@@ -1461,6 +1552,8 @@ export default function Dashboard() {
                 <OptionPicker
                   options={SPONSORS}
                   selected={searchForm.sponsors}
+                  allowAll
+                  customPlaceholder="Universidade, biotech ou sigla"
                   onChange={sponsors => setSearchForm(prev => ({ ...prev, sponsors }))}
                 />
               </div>
