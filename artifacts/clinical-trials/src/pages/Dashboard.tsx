@@ -142,7 +142,7 @@ const SEARCH_STATUSES = [
 ];
 
 const SEARCH_STUDY_TYPES = [
-  { value: ANY, label: 'Qualquer' },
+  { value: ANY, label: 'Todos' },
   { value: 'INTERVENTIONAL', label: 'Intervencionista' },
   { value: 'OBSERVATIONAL', label: 'Observacional' },
   { value: 'EXPANDED_ACCESS', label: 'Acesso expandido' },
@@ -186,7 +186,7 @@ const SEARCH_SPONSOR_CLASSES = [
 ];
 
 const SEARCH_INTERVENTIONS = [
-  { value: ANY, label: 'Qualquer' },
+  { value: ANY, label: 'Todos' },
   { value: 'DRUG', label: 'Droga' },
   { value: 'BIOLOGICAL', label: 'Biológico' },
   { value: 'DEVICE', label: 'Dispositivo' },
@@ -246,8 +246,8 @@ const DRUGS = [
 
 const PAGE_SIZES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 
-function selectionLabel(selected: string[]) {
-  if (selected.length === 0) return 'Escolha um ou mais';
+function selectionLabel(selected: string[], emptyLabel: string) {
+  if (selected.length === 0) return emptyLabel;
   if (selected.length === 1) return selected[0];
   return `${selected[0]} +${selected.length - 1}`;
 }
@@ -257,11 +257,13 @@ function OptionPicker({
   selected,
   onChange,
   allowCustom = true,
+  allowAll = false,
 }: {
   options: string[];
   selected: string[];
   onChange: (values: string[]) => void;
   allowCustom?: boolean;
+  allowAll?: boolean;
 }) {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState('');
@@ -287,8 +289,8 @@ function OptionPicker({
     <Popover>
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" className="h-10 w-full justify-between gap-2 px-3 font-normal">
-          <span className={`truncate ${selected.length === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
-            {selectionLabel(selected)}
+          <span className={`truncate ${selected.length === 0 && !allowAll ? 'text-slate-400' : 'text-slate-900'}`}>
+            {selectionLabel(selected, allowAll ? 'Todos' : 'Escolha um ou mais')}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -301,6 +303,15 @@ function OptionPicker({
           className="mb-1.5 h-8 text-sm"
         />
         <div className="max-h-40 space-y-0.5 overflow-y-auto">
+          {allowAll && (
+            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[13px] font-medium leading-4 hover:bg-[#f6f1ea]">
+              <Checkbox
+                checked={selected.length === 0}
+                onCheckedChange={() => onChange([])}
+              />
+              <span>Todos</span>
+            </label>
+          )}
           {visible.map(name => (
             <label key={name} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-[13px] leading-4 hover:bg-[#f6f1ea]">
               <Checkbox
@@ -1227,8 +1238,11 @@ export default function Dashboard() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f6f3ea] px-4 py-4 font-sans md:px-8 md:py-8">
-      <div className="mx-auto max-w-[1600px] space-y-6">
+    <div className="avanzare-stage relative min-h-screen overflow-hidden px-4 py-4 font-sans md:px-8 md:py-8">
+      <div className="avanzare-orb -left-20 top-8 h-64 w-64 bg-blue-400/35" />
+      <div className="avanzare-orb right-[-40px] top-24 h-72 w-72 bg-blue-800/25 [animation-delay:-4s]" />
+      <div className="avanzare-orb bottom-0 left-1/3 h-56 w-56 bg-sky-300/40 [animation-delay:-8s]" />
+      <div className="relative mx-auto max-w-[1600px] space-y-6">
         <Input
           type="file"
           accept=".xlsx,.xls"
@@ -1237,9 +1251,17 @@ export default function Dashboard() {
           onChange={handleFileUpload}
         />
 
-        <section className="rounded-[28px] border border-[#e7dfd3] bg-white shadow-[0_18px_44px_rgba(48,26,70,0.06)]">
-          <div className="relative overflow-hidden border-b border-[#e7dfd3] px-6 py-6 md:px-8 md:py-8">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(69,36,107,0.09),transparent_36%),radial-gradient(circle_at_right,rgba(207,128,49,0.14),transparent_28%)]" />
+        <section className="avanzare-panel avanzare-rise rounded-[28px]">
+          <div className="relative overflow-hidden border-b border-blue-100 bg-gradient-to-r from-[#0e3a6b] to-[#1d6fbf] px-6 py-6 text-white md:px-8 md:py-8">
+            <video
+              className="avanzare-hero-video"
+              autoPlay
+              muted
+              loop
+              playsInline
+              src="/avanzare-hero.mp4"
+            />
+            <div className="avanzare-hero-wash pointer-events-none absolute inset-0" />
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-4xl space-y-5">
                 <div className="inline-flex rounded-[26px] border border-[#efe4d8] bg-white/88 px-5 py-4 shadow-[0_14px_30px_rgba(48,26,70,0.05)] backdrop-blur">
@@ -1249,7 +1271,7 @@ export default function Dashboard() {
                     className="h-auto w-[220px] md:w-[320px]"
                   />
                 </div>
-                <div className="space-y-3">
+                <div className="avanzare-hero space-y-3">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#8d5f37]">
                     Avanzare Clinical Research Solutions
                   </div>
@@ -1281,37 +1303,49 @@ export default function Dashboard() {
                     value: totalStudies,
                     note: 'Resultados e shortlist combinados',
                     icon: Activity,
+                    card: 'border-blue-200 bg-white',
+                    chip: 'bg-blue-100 text-[#0e3a6b]',
+                    number: 'text-[#0e3a6b]',
                   },
                   {
                     label: 'Em recrutamento',
                     value: recruitingCount,
                     note: 'Registros prontos para priorização',
                     icon: Sparkles,
+                    card: 'border-sky-200 bg-sky-50',
+                    chip: 'bg-sky-100 text-sky-800',
+                    number: 'text-sky-900',
                   },
                   {
                     label: 'Patrocinadores',
                     value: sponsorCount,
                     note: 'Organizações únicas no espaço',
                     icon: Building2,
+                    card: 'border-blue-300 bg-blue-50',
+                    chip: 'bg-blue-200 text-[#0e3a6b]',
+                    number: 'text-[#0e3a6b]',
                   },
                   {
                     label: 'Com contatos',
                     value: highlightedStudies,
                     note: 'Entradas com e-mail ou telefone',
                     icon: Mail,
+                    card: 'border-[#0e3a6b]/20 bg-white',
+                    chip: 'bg-[#0e3a6b]/10 text-[#0e3a6b]',
+                    number: 'text-[#0e3a6b]',
                   },
                 ].map(metric => (
-                  <Card key={metric.label} className="rounded-2xl border-[#eee6dc] bg-white shadow-none">
+                  <Card key={metric.label} className={`rounded-2xl shadow-none transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${metric.card}`}>
                     <CardContent className="p-5">
                       <div className="mb-4 flex items-center justify-between">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                           {metric.label}
                         </div>
-                        <div className="rounded-full bg-[#45246b]/8 p-2 text-[#45246b]">
+                        <div className={`rounded-full p-2 ${metric.chip}`}>
                           <metric.icon className="h-4 w-4" />
                         </div>
                       </div>
-                      <div className="text-3xl font-semibold tracking-[-0.04em] text-[#34204f]">
+                      <div className={`text-3xl font-semibold tracking-[-0.04em] ${metric.number}`}>
                         {metric.value}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-slate-500">{metric.note}</p>
@@ -1321,8 +1355,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="border-t border-[#e7dfd3] bg-[#faf7f2] px-6 py-6 lg:border-l lg:border-t-0 md:px-8 md:py-8">
-              <div className="rounded-[24px] border border-[#ece3d8] bg-white p-6 shadow-[0_12px_30px_rgba(48,26,70,0.05)]">
+            <div className="border-t border-blue-100 bg-blue-50/70 px-6 py-6 lg:border-l lg:border-t-0 md:px-8 md:py-8">
+              <div className="rounded-[24px] border border-blue-100 bg-white p-6">
                 <div className="mb-6 flex items-start justify-between gap-4">
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d5f37]">
@@ -1361,7 +1395,7 @@ export default function Dashboard() {
                   size="lg"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading || isFetching}
-                  className="mt-6 h-12 w-full justify-between rounded-2xl bg-[#45246b] px-5 text-sm font-semibold text-white hover:bg-[#341a51]"
+                  className="avanzare-btn mt-6 h-12 w-full justify-between rounded-2xl px-5 text-sm font-semibold text-white"
                 >
                   <span className="flex items-center gap-2">
                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
@@ -1374,7 +1408,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[#e7dfd3] bg-white p-6 shadow-[0_18px_44px_rgba(48,26,70,0.06)] md:p-8">
+        <section className="avanzare-panel avanzare-rise p-6 md:p-8" style={{ animationDelay: '90ms' }}>
           <form
             className="space-y-5"
             onSubmit={event => {
@@ -1408,6 +1442,7 @@ export default function Dashboard() {
                 <OptionPicker
                   options={DRUGS}
                   selected={searchForm.drug}
+                  allowAll
                   onChange={drug => setSearchForm(prev => ({ ...prev, drug }))}
                 />
               </div>
@@ -1417,6 +1452,7 @@ export default function Dashboard() {
                   options={COUNTRIES}
                   selected={searchForm.countries}
                   allowCustom={false}
+                  allowAll
                   onChange={countries => setSearchForm(prev => ({ ...prev, countries }))}
                 />
               </div>
@@ -1464,7 +1500,7 @@ export default function Dashboard() {
               <Button
                 type="submit"
                 disabled={isSearching || isFetching}
-                className="h-11 rounded-2xl bg-[#45246b] px-6 text-white hover:bg-[#341a51]"
+                className="avanzare-btn h-11 rounded-2xl px-6 text-white"
               >
                 {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 Buscar estudos
@@ -1523,7 +1559,7 @@ export default function Dashboard() {
                   <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
                     Lemos a planilha inteira, detectamos os IDs NCT automaticamente e montamos um espaço limpo para revisão.
                   </p>
-                  <Button size="lg" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="mt-8 h-12 rounded-2xl bg-[#45246b] px-8 hover:bg-[#341a51]">
+                  <Button size="lg" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="avanzare-btn mt-8 h-12 rounded-2xl px-8 text-white">
                     {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</> : 'Selecionar arquivo Excel'}
                   </Button>
                 </div>
@@ -1542,21 +1578,21 @@ export default function Dashboard() {
                   Use a aba de resultados para a saída atual da API e a aba de shortlist para a seleção da Avanzare.
                 </p>
               </div>
-              <div className="rounded-full border border-[#ece3d8] bg-white/90 px-4 py-2 text-xs font-medium text-slate-500">
+              <div className="rounded-full border border-blue-200 bg-white px-4 py-2 font-mono text-xs font-medium text-[#0e3a6b]">
                 Fonte pública • ClinicalTrials.gov • Fluxo guiado por Excel
               </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="h-auto rounded-[22px] border border-[#ece3d8] bg-white p-1.5 shadow-[0_10px_30px_rgba(48,26,70,0.05)]">
-                <TabsTrigger value="results" className="gap-2 rounded-[16px] px-5 py-3 data-[state=active]:bg-[#45246b] data-[state=active]:text-white data-[state=active]:shadow-none">
+              <TabsList className="h-auto rounded-[22px] border border-blue-200 bg-white p-1.5">
+                <TabsTrigger value="results" className="avanzare-tab gap-2 rounded-[16px] px-5 py-3 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <DatabaseZap className="h-4 w-4" />
                   Resultados ao vivo
                   {studies.length > 0 && (
                     <Badge variant="secondary" className="ml-1 bg-white/14 px-1.5 py-0 text-xs text-inherit">{studies.length}</Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="saved" className="gap-2 rounded-[16px] px-5 py-3 data-[state=active]:bg-[#45246b] data-[state=active]:text-white data-[state=active]:shadow-none">
+                <TabsTrigger value="saved" className="avanzare-tab gap-2 rounded-[16px] px-5 py-3 data-[state=active]:text-white data-[state=active]:shadow-none">
                   <List className="h-4 w-4" />
                   Lista Avanzare
                   {savedStudies.length > 0 && (
