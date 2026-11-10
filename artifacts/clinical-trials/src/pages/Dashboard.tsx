@@ -1072,7 +1072,7 @@ export default function Dashboard() {
     drug: [],
     countries: [],
     sponsors: [],
-    status: 'RECRUITING',
+    status: ANY,
     studyType: ANY,
     phase: ANY,
     sex: ANY,
